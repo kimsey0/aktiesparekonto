@@ -1,6 +1,6 @@
-/* Beregningslogikken bag jacobbundgaard.dk/aktiesparekonto — ren matematik, ingen DOM.
- * Kan køres direkte i Node til test/audit:  const sim = require('./sim.js')
- * Alle funktioner tager et parameterobjekt P — se readParams() i index.html for felterne.
+/* The calculation logic behind jacobbundgaard.dk/aktiesparekonto — pure math, no DOM.
+ * Runs directly in Node for testing and auditing:  const sim = require('./sim.js')
+ * Every function takes a parameter object P — see readParams() in index.html for the fields.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -19,7 +19,7 @@
     return lowPart*low + (gain-lowPart)*high;
   }
   // final drawdown of a realisation position: tax, trading fee, and years it takes.
-  // thr0 = progressionsgrænsen in the sale year (keeps growing with P.reg in later
+  // thr0 = the progression threshold in the sale year (keeps growing with P.reg in later
   // sale years); usedFirst = band already consumed in the first sale year (that
   // year's dividends/harvest); P.threshUsed consumes band in every later year too.
   function drawdown(value, basis, P, thr0, usedFirst){
@@ -46,11 +46,11 @@
     const months=P.horizon*12;
     const rAsk=Math.pow(1+P.gross-P.askTer,1/12)-1;
     const rTax=Math.pow(1+P.gross-P.taxTer,1/12)-1;
-    // gift: hver ægtefælle kan have sin egen ASK (dobbelt loft), og uudnyttet
-    // progressionsgrænse overføres mellem samlevende ægtefæller (PSL § 8 a, stk. 4).
+    // married: each spouse can hold their own ASK (double ceiling), and unused
+    // progression threshold transfers between cohabiting spouses (PSL § 8 a, stk. 4).
     const thrBase=P.threshold*(P.married?2:1);
     const ceilBase=P.askCeiling*(P.married?2:1);
-    let thrY=thrBase;   // årets progressionsgrænse — § 20-reguleret med P.reg
+    let thrY=thrBase;   // this year's progression threshold — § 20-adjusted by P.reg
 
     let ask={v:0,yStart:0,contribYr:0,carry:0,taxLast:0,taxCum:0};
     let ov ={v:0,basis:0,taxCum:0,feeCum:0};   // overflow taxable (strategy A)
@@ -73,12 +73,12 @@
       return g;
     }
 
-    // årets udbytte/minimumsindkomst, beskattet som aktieindkomst. 'cash' (SPIIMA/
-    // SPVIGAKL): udbyttet udbetales, skatten betales af det, resten geninvesteres —
-    // værdien falder med skatten, anskaffelsessummen stiger med nettobeløbet.
-    // 'tech' (STIIAM): ingen udbetaling — anskaffelsessummen opskrives med brutto-
-    // beløbet, og skatten finansieres ved at sælge lidt af beholdningen (gevinst og
-    // kurtage på dette lille salg ignoreres som andenordens).
+    // the year's distribution/minimumsindkomst, taxed as share income. 'cash' (SPIIMA/
+    // SPVIGAKL): the dividend is paid out, tax is paid from it, and the rest is
+    // reinvested — value drops by the tax, cost basis rises by the net amount.
+    // 'tech' (STIIAM): nothing is paid out — the cost basis is stepped up by the gross
+    // amount, and the tax is funded by selling a sliver of the holding (the gain and
+    // trading fee on that tiny sale are ignored as second-order).
     function divEvent(a, used){
       const div=P.taxDiv*a.v;
       if(div<=0) return 0;
@@ -94,9 +94,9 @@
       if(mi===0){
         const ceiling=ceilBase*Math.pow(1+P.reg,y);
         thrY=thrBase*Math.pow(1+P.reg,y);
-        // plads = loft minus værdien pr. 31/12 (skatten er endnu ikke hævet på
-        // opgørelsestidspunktet, så den lægges tilbage) + skatten selv, som altid
-        // må genindskydes (aktiesparekontolovens § 9, stk. 2).
+        // headroom = ceiling minus the 31 Dec value (the tax has not yet been
+        // withdrawn at the measurement date, so it is added back) + the tax itself,
+        // which may always be re-deposited (aktiesparekontoloven § 9, stk. 2).
         budget=Math.max(0,ceiling-(ask.v+ask.taxLast))+ask.taxLast;
         ask.yStart=ask.v; ask.contribYr=0;
       }
@@ -105,8 +105,8 @@
       let toOv=contrib-toAsk;
       if(toOv>1 && firstOverflow===null) firstOverflow=y+1;
 
-      // indskud tæller brutto i lagerbeskatningen — vekselomkostningen er dermed
-      // implicit fradragsberettiget, som i den faktiske opgørelse (værdi minus indskud)
+      // deposits count gross in the mark-to-market tax base — the FX cost is thereby
+      // implicitly deductible, as in the actual assessment (value minus deposits)
       const askNet=toAsk*(1-P.askForex);
       ask.v+=askNet; ask.contribYr+=toAsk; ask.v*=(1+rAsk);
 
@@ -115,11 +115,11 @@
 
       if(mi===11){
         const lastYear = (y===P.horizon-1);
-        // ASK lager tax (withdrawn from the account)
+        // ASK mark-to-market tax (withdrawn from the account)
         const gain=ask.v-ask.yStart-ask.contribYr;
-        let tg=gain-ask.carry, lager=0;
-        if(tg>0){ lager=tg*P.askTax; ask.carry=0; } else { ask.carry=-tg; }
-        ask.v-=lager; ask.taxCum+=lager; ask.taxLast=lager;
+        let tg=gain-ask.carry, lagerTax=0;
+        if(tg>0){ lagerTax=tg*P.askTax; ask.carry=0; } else { ask.carry=-tg; }
+        ask.v-=lagerTax; ask.taxCum+=lagerTax; ask.taxLast=lagerTax;
 
         // strategy A overflow: dividend -> fund ASK shortfall from overflow -> harvest
         let usedA=P.threshUsed;
@@ -135,12 +135,12 @@
           const fee=Math.max(P.feePct*sell, P.feeMin);
           ov.basis-=sell*(ov.basis/ov.v); ov.v-=sell;
           ov.taxCum+=rt; ov.feeCum+=fee;
-          // re-deposit net proceeds; the deposit pays forex like any other, and the
-          // forex cost is deductible in next year's lager base (carried as a loss)
+          // re-deposit net proceeds; the deposit pays FX like any other, and the
+          // FX cost is deductible in next year's mark-to-market base (carried as a loss)
           const net=sell-rt-fee, netAsk=net*(1-P.askForex);
           ask.v+=netAsk; ask.carry+=net-netAsk;
         }
-        if(!lastYear) usedA+=harvest(ov, usedA);   // harvesting in the sale year is pure kurtage
+        if(!lastYear) usedA+=harvest(ov, usedA);   // harvesting in the sale year only adds fees
 
         // strategy B: dividend -> harvest
         let usedB=P.threshUsed;

@@ -436,10 +436,10 @@
 </div>
 
 <script>
-// sim.js ligger i samme mappe som denne side. Serveres mappen uden afsluttende
-// skråstreg (fx /aktiesparekonto), ville en almindelig relativ sti pege på roden —
-// så vi regner sidens mappe ud og indlæser derfra. Virker også lokalt (file://)
-// og hvis siden hostes på en anden sti.
+// sim.js sits in the same directory as this page. If the directory is served
+// without a trailing slash (e.g. /aktiesparekonto), a plain relative path would
+// resolve to the site root — so compute the page's directory and load from there.
+// Also works locally (file://) and when the page is hosted at any other path.
 (function(){
   var p = location.pathname;
   var dir = /\.[^\/]*$/.test(p) ? p.slice(0, p.lastIndexOf('/') + 1)
@@ -486,8 +486,8 @@
     };
   }
 
-  // Beregningslogikken (aktieTax, bracketTax, drawdown, simulate) ligger i sim.js,
-  // så den kan læses og testes for sig:  node test/sim.test.js
+  // The calculation logic (aktieTax, bracketTax, drawdown, simulate) lives in
+  // sim.js so it can be read and tested on its own:  node test/sim.test.js
   const {simulate} = window.ASKSIM;
 
   // ---------- chart ----------
@@ -688,9 +688,9 @@
   // ---------- fund presets ----------
   // Only fund-specific fields are tied to a preset; the active chip clears as soon
   // as you hand-edit one of those fields, so the name never contradicts the numbers.
-  // dividend %-defaults: gns. udlodning/minimumsindkomst for indkomstårene 2024-25
-  // målt mod kurs medio 2026 (STIIAM 1,4 %, SPVIGAKL 3,2 %); SPIIMA er ny (maj 2026)
-  // uden historik og arver SPVIGAKL's sats som proxy.
+  // dividend %-defaults: average distribution/minimumsindkomst for income years
+  // 2024-25 measured against mid-2026 NAV (STIIAM 1.4%, SPVIGAKL 3.2%); SPIIMA is
+  // new (May 2026) with no history and inherits SPVIGAKL's rate as a proxy.
   const FUNDS={
     ask:{fields:['askTer','askForex'], presets:{ WEBN:{askTer:'0.07', askForex:'0.25'} }},
     tax:{fields:['taxTer','taxDiv'], presets:{
