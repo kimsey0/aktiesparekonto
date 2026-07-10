@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aktiesparekonto vs. frit depot — skatteeffektivitet</title>
+<meta property="og:title" content="Aktiesparekonto vs. frit depot — skatteeffektivitet">
+<meta property="og:description" content="Interaktiv model: 17 % lagerskat mod 27/42 % realisationsskat — med omkostninger, indskudsloft, udbytter og udtrækningsstrategi. 2026-satser.">
+<meta name="description" content="Interaktiv model: 17 % lagerskat mod 27/42 % realisationsskat — med omkostninger, indskudsloft, udbytter og udtrækningsstrategi. 2026-satser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3F2EC;
+    --surface:#FBFAF6;
+    --ink:#1F231D;
+    --muted:#6C6F64;
+    --faint:#9A9C90;
+    --hair:#DCDAD0;
+    --ask:#1A6B5E;        /* petrol teal  — aktiesparekonto */
+    --ask-soft:#1A6B5E1a;
+    --tax:#C0852E;        /* ochre        — frit depot */
+    --tax-soft:#C0852E1f;
+    --gap:#1A6B5E;        /* advantage band reuses teal */
+    --pos:#1A6B5E;
+    --neg:#B0492E;
+    --r:10px;
+    --display:'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --body:ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --mono:ui-monospace, 'SF Mono', 'JetBrains Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--body); font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 22px 80px}
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--faint); font-weight:500;
+  }
+  /* ---------- masthead ---------- */
+  header.mast{
+    display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between;
+    gap:14px; padding-bottom:20px; border-bottom:1.5px solid var(--ink);
+  }
+  .mast h1{
+    font-family:var(--display); font-weight:600; font-size:clamp(24px,3.4vw,38px);
+    line-height:1.02; margin:6px 0 0; letter-spacing:-.015em; max-width:18ch;
+  }
+  .mast .sub{color:var(--muted); margin-top:8px; max-width:54ch; font-size:14.5px}
+  .tag{
+    font-family:var(--mono); font-size:11px; letter-spacing:.08em; color:var(--ask);
+    border:1px solid var(--ask); border-radius:999px; padding:5px 11px; white-space:nowrap;
+    align-self:center;
+  }
+  /* ---------- hero result ledger ---------- */
+  .ledger{
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch;
+    margin:24px 0 8px; border:1px solid var(--hair); border-radius:var(--r);
+    background:var(--surface); overflow:hidden;
+  }
+  .ledger .cell{padding:20px 22px}
+  .ledger .cell.mid{
+    display:flex; flex-direction:column; justify-content:center; text-align:center;
+    background:#fff; border-left:1px solid var(--hair); border-right:1px solid var(--hair);
+    min-width:210px;
+  }
+  .ledger .cap{display:flex; align-items:center; gap:8px; margin-bottom:10px}
+  .swatch{width:10px; height:10px; border-radius:2px; flex:none}
+  .ledger .name{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
+  .big{font-family:var(--mono); font-weight:600; font-size:clamp(22px,3vw,31px); letter-spacing:-.01em; line-height:1}
+  .ledger .real{color:var(--muted); font-size:12.5px; font-family:var(--mono); margin-top:7px}
+  .ledger .mid .label{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin-bottom:8px}
+  .ledger .mid .big{font-size:clamp(24px,3.4vw,34px)}
+  .ledger .mid .pct{font-family:var(--mono); font-size:13px; margin-top:6px}
+  .pos{color:var(--pos)} .neg{color:var(--neg)}
+  /* ---------- main grid ---------- */
+  .main{display:grid; grid-template-columns:330px 1fr; gap:22px; margin-top:22px; align-items:start}
+  /* ---------- controls ---------- */
+  .panel{background:var(--surface); border:1px solid var(--hair); border-radius:var(--r); padding:4px 16px 14px}
+  .group{padding:14px 0; border-bottom:1px solid var(--hair)}
+  .group:last-child{border-bottom:none}
+  .group > .ghead{display:flex; align-items:center; gap:8px; margin:0 0 12px}
+  .group > .ghead .gt{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink); font-weight:500}
+  details.group > summary.ghead{cursor:pointer; list-style:none; margin:0}
+  details.group > summary.ghead::-webkit-details-marker{display:none}
+  details.group > summary.ghead .caret{font-family:var(--mono); font-size:10px; color:var(--faint)}
+  details.group > summary.ghead .caret::before{content:'▸'}
+  details.group[open] > summary.ghead .caret::before{content:'▾'}
+  details.group[open] > summary.ghead{margin-bottom:12px}
+  .field{margin:0 0 11px}
+  .field:last-child{margin-bottom:0}
+  .field label{display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:12.5px; color:var(--muted); margin-bottom:5px}
+  .field label .v{font-family:var(--mono); color:var(--ink); font-size:12.5px; font-weight:500}
+  .inrow{display:flex; align-items:center; gap:8px}
+  input[type=number]{
+    width:100%; font-family:var(--mono); font-size:13.5px; color:var(--ink);
+    background:#fff; border:1px solid var(--hair); border-radius:7px; padding:7px 9px;
+  }
+  .unit{font-family:var(--mono); font-size:12px; color:var(--faint); white-space:nowrap}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:3px; background:var(--hair);
+    border-radius:3px; outline:none; margin:8px 0 2px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:15px; height:15px; border-radius:50%;
+    background:var(--ink); cursor:pointer; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--ink);
+  }
+  input[type=range]::-moz-range-thumb{width:15px; height:15px; border-radius:50%; background:var(--ink); cursor:pointer; border:2px solid var(--surface)}
+  .check{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--ink); cursor:pointer}
+  .check input{width:16px; height:16px; accent-color:var(--ask)}
+  .seg{display:inline-flex; border:1px solid var(--hair); border-radius:7px; overflow:hidden; background:#fff}
+  .seg button{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; padding:5px 11px; border:none; background:transparent; color:var(--muted); cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--ink); color:#fff}
+  .reset{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--muted); background:none; border:1px dashed var(--hair); border-radius:7px; padding:8px; width:100%; cursor:pointer; margin-top:4px}
+  .reset:hover{color:var(--ink); border-color:var(--muted)}
+  .presets{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:-6px 0 13px}
+  .presets .plabel{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-right:2px}
+  .chip{font-family:var(--mono); font-size:11.5px; padding:4px 9px; border-radius:999px; border:1px solid var(--hair); background:#fff; color:var(--muted); cursor:pointer; line-height:1.2}
+  .chip:hover{border-color:var(--muted); color:var(--ink)}
+  .presets[data-group=ask] .chip.active{background:var(--ask); border-color:var(--ask); color:#fff}
+  .presets[data-group=tax] .chip.active{background:var(--tax); border-color:var(--tax); color:#fff}
+  .presets[data-group=fee] .chip.active{background:var(--ink); border-color:var(--ink); color:#fff}
+  .seg.full{display:flex; width:100%}
+  .seg.full button{flex:1; text-align:center}
+  .hide{display:none}
+  .dim{opacity:.45; pointer-events:none}
+  /* ---------- chart ---------- */
+  .viz{background:var(--surface); border:1px solid var(--hair); border-radius:var(--r); padding:16px 16px 8px}
+  .viz .vtop{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:6px}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; align-items:center}
+  .lg{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted)}
+  .lg .ln{width:18px; height:0; border-top-width:2.5px; border-top-style:solid; display:inline-block}
+  .lg .bd{width:14px; height:11px; border-radius:2px; display:inline-block}
+  .chartbox{position:relative; width:100%}
+  svg.chart{display:block; width:100%; height:auto; touch-action:none}
+  .grid line{stroke:var(--hair); stroke-width:1}
+  .axis text{font-family:var(--mono); font-size:11px; fill:var(--faint)}
+  .lineA{fill:none; stroke:var(--ask); stroke-width:2.4}
+  .lineB{fill:none; stroke:var(--tax); stroke-width:2.4}
+  .lineAsk{fill:none; stroke:var(--ask); stroke-width:1.4; stroke-dasharray:3 3; opacity:.65}
+  .band{fill:var(--gap); opacity:.10}
+  .loft{stroke:var(--ink); stroke-width:1; stroke-dasharray:2 3; opacity:.5}
+  .loft-t{font-family:var(--mono); font-size:10px; fill:var(--muted)}
+  .guide{stroke:var(--ink); stroke-width:1; opacity:.35}
+  .dotA{fill:var(--ask)} .dotB{fill:var(--tax)}
+  .tip{
+    position:absolute; pointer-events:none; background:var(--ink); color:#fff; border-radius:8px;
+    padding:9px 11px; font-size:12px; min-width:160px; transform:translate(-50%,-115%);
+    opacity:0; transition:opacity .08s; box-shadow:0 8px 22px rgba(0,0,0,.18); z-index:5;
+  }
+  .tip .ty{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:#ffffffaa; margin-bottom:6px}
+  .tip .tr{display:flex; justify-content:space-between; gap:14px; font-family:var(--mono); font-size:12px; line-height:1.7}
+  .tip .tr .k{display:flex; align-items:center; gap:6px; color:#ffffffcc}
+  .tip .tr .sw{width:8px; height:8px; border-radius:2px}
+  .tip .tg{border-top:1px solid #ffffff2a; margin-top:6px; padding-top:6px}
+  /* ---------- breakdown ---------- */
+  section.detail{margin-top:24px}
+  .detail h2, .notes h2{font-family:var(--display); font-weight:600; font-size:18px; letter-spacing:-.01em; margin:0 0 4px}
+  .detail .lead, .notes .lead{color:var(--muted); font-size:13.5px; margin:0 0 14px; max-width:70ch}
+  table.bd{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--hair); border-radius:var(--r); overflow:hidden; font-size:13.5px}
+  table.bd th, table.bd td{padding:11px 14px; text-align:right; border-bottom:1px solid var(--hair)}
+  table.bd th:first-child, table.bd td:first-child{text-align:left}
+  table.bd thead th{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:500; background:#fff}
+  table.bd td{font-family:var(--mono)}
+  table.bd td:first-child{font-family:var(--body); color:var(--muted)}
+  table.bd tr:last-child td{border-bottom:none}
+  table.bd .colA{color:var(--ask)} table.bd .colB{color:var(--tax)}
+  table.bd tr.tot td{background:#fff; font-weight:600; color:var(--ink)}
+  table.bd tr.tot td:first-child{color:var(--ink)}
+  .hd-swatch{display:inline-flex; align-items:center; gap:7px; justify-content:flex-end}
+  /* ---------- notes ---------- */
+  .notes{margin-top:30px; border-top:1px solid var(--hair); padding-top:22px}
+  .notes .cols{columns:2; column-gap:34px}
+  .notes p{margin:0 0 12px; font-size:13px; color:var(--muted); break-inside:avoid}
+  .notes p strong{color:var(--ink); font-weight:600}
+  .notes code{font-family:var(--mono); font-size:12px; background:#fff; border:1px solid var(--hair); border-radius:4px; padding:1px 5px; color:var(--ink)}
+  .disc{margin-top:14px; font-size:11.5px; color:var(--faint); max-width:80ch}
+  /* ---------- responsive ---------- */
+  @media (max-width:880px){
+    .main{grid-template-columns:1fr}
+    .ledger{grid-template-columns:1fr; }
+    .ledger .cell.mid{border-left:none; border-right:none; border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); order:1}
+    .ledger .cell.a{order:0} .ledger .cell.b{order:2}
+    .notes .cols{columns:1}
+  }
+  :focus-visible{outline:2px solid var(--ask); outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <div class="eyebrow">Skatteeffektivitet · frie midler · 2026-satser</div>
+      <h1>Aktiesparekonto vs. frit depot</h1>
+      <p class="sub">De 17 % på aktiesparekontoen vs. 27/42 % i et frit depot er kun overskriften. Når man lægger højere fondsomkostninger, valutaveksling og lagerbeskatningens manglende skatteudskydelse oveni, bliver forskellen mindre — og afhænger stærkt af din tidshorisont og hvordan du trækker pengene ud til sidst.</p>
+    </div>
+    <span class="tag">17 % lager vs. 27/42 % realisation</span>
+  </header>
+
+  <!-- hero result -->
+  <div class="ledger" id="ledger">
+    <div class="cell a">
+      <div class="cap"><span class="swatch" style="background:var(--ask)"></span><span class="name">Maksimér aktiesparekonto</span></div>
+      <div class="big" id="A_big">—</div>
+      <div class="real" id="A_real">—</div>
+    </div>
+    <div class="cell mid">
+      <div class="label">Aktiesparekontoens fordel</div>
+      <div class="big" id="gap_big">—</div>
+      <div class="pct" id="gap_pct">—</div>
+    </div>
+    <div class="cell b">
+      <div class="cap" style="justify-content:flex-end"><span class="name">Kun frit depot</span><span class="swatch" style="background:var(--tax)"></span></div>
+      <div class="big" id="B_big" style="text-align:right">—</div>
+      <div class="real" id="B_real" style="text-align:right">—</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- controls -->
+    <div class="panel" id="controls">
+
+      <div class="group">
+        <div class="ghead"><span class="gt">Din opsparing</span></div>
+        <div class="field">
+          <label for="initial">Engangsindskud <span class="v" id="initial_v"></span></label>
+          <div class="inrow"><input type="number" id="initial" min="0" step="5000" value="100000"><span class="unit">kr</span></div>
+        </div>
+        <div class="field">
+          <label for="monthly">Månedlig opsparing <span class="v" id="monthly_v"></span></label>
+          <input type="range" id="monthly_r" min="0" max="20000" step="250" value="4000">
+          <div class="inrow"><input type="number" id="monthly" min="0" step="250" value="4000"><span class="unit">kr/md</span></div>
+        </div>
+        <div class="field">
+          <label for="horizon">Tidshorisont <span class="v" id="horizon_v"></span></label>
+          <input type="range" id="horizon_r" min="1" max="40" step="1" value="20">
+          <div class="inrow"><input type="number" id="horizon" min="1" max="60" step="1" value="20"><span class="unit">år</span></div>
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="married"> Gift — dobbelt ASK-loft og progressionsgrænse</label>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="ghead"><span class="gt">Marked</span></div>
+        <div class="field">
+          <label for="gross">Forventet afkast — nominelt <span class="v" id="gross_v"></span></label>
+          <input type="range" id="gross_r" min="0" max="12" step="0.1" value="7">
+          <div class="inrow"><input type="number" id="gross" min="0" max="20" step="0.1" value="7"><span class="unit">% p.a.</span></div>
+        </div>
+        <div class="field">
+          <label for="infl">Inflation (DK) <span class="v" id="infl_v"></span></label>
+          <input type="range" id="infl_r" min="0" max="6" step="0.1" value="2">
+          <div class="inrow"><input type="number" id="infl" min="0" max="15" step="0.1" value="2"><span class="unit">% p.a.</span></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="ghead"><span class="swatch" style="background:var(--ask)"></span><span class="gt">Aktiesparekonto</span></div>
+        <div class="presets" data-group="ask"><span class="plabel">Fond</span><button class="chip" data-group="ask" data-fund="WEBN">WEBN</button></div>
+        <div class="field">
+          <label for="askTer">Løbende omk. (TER) <span class="v" id="askTer_v"></span></label>
+          <div class="inrow"><input type="number" id="askTer" min="0" step="0.01" value="0.07"><span class="unit">%</span></div>
+        </div>
+        <div class="field">
+          <label for="askForex">Valutaveksling — pr. vej <span class="v" id="askForex_v"></span></label>
+          <div class="inrow"><input type="number" id="askForex" min="0" step="0.05" value="0.25"><span class="unit">%</span></div>
+        </div>
+        <div class="field">
+          <label for="ceiling">Indskudsloft <span class="v" id="ceiling_v"></span></label>
+          <div class="inrow"><input type="number" id="ceiling" min="0" step="1000" value="174200"><span class="unit">kr</span></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="ghead"><span class="swatch" style="background:var(--tax)"></span><span class="gt">Frit depot</span></div>
+        <div class="presets" data-group="tax"><span class="plabel">Fond</span><button class="chip" data-group="tax" data-fund="STIIAM">STIIAM</button><button class="chip" data-group="tax" data-fund="SPIIMA">SPIIMA</button><button class="chip" data-group="tax" data-fund="SPVIGAKL">SPVIGAKL</button></div>
+        <div class="field">
+          <label for="taxTer">Løbende omk. (TER) <span class="v" id="taxTer_v"></span></label>
+          <div class="inrow"><input type="number" id="taxTer" min="0" step="0.01" value="0.30"><span class="unit">%</span></div>
+        </div>
+        <div class="field">
+          <label for="taxDiv">Udbytte / minimumsindkomst <span class="v" id="taxDiv_v"></span></label>
+          <div class="inrow"><input type="number" id="taxDiv" min="0" step="0.1" value="1.4"><span class="unit">% p.a.</span></div>
+        </div>
+        <div class="field">
+          <label>Udbyttetype</label>
+          <div class="seg full" role="group" aria-label="Udbyttetype">
+            <button id="dv_tech" aria-pressed="true">Teknisk (STIIAM)</button>
+            <button id="dv_cash" aria-pressed="false">Kontant</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="ghead"><span class="gt">Udtrækning til sidst</span></div>
+        <div class="field">
+          <label>Salgsstrategi</label>
+          <div class="seg full" role="group" aria-label="Salgsstrategi ved udtrækning">
+            <button id="dm_years" aria-pressed="true">Fast antal år</button>
+            <button id="dm_kink" aria-pressed="false">Op til grænsen</button>
+          </div>
+        </div>
+        <div class="field" id="liqField">
+          <label for="liq">Salg fordelt over <span class="v" id="liq_v"></span></label>
+          <input type="range" id="liq_r" min="1" max="30" step="1" value="1">
+          <div class="inrow"><input type="number" id="liq" min="1" max="40" step="1" value="1"><span class="unit">år</span></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:2px 0 10px" id="drawNote"></p>
+      </div>
+
+      <div class="group">
+        <div class="ghead"><span class="gt">Skattehøst</span></div>
+        <div class="field" id="harvestField">
+          <label class="check"><input type="checkbox" id="harvest"> Realisér gevinst op til grænsen hvert år</label>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:2px 0 0" id="harvestNote"></p>
+      </div>
+
+      <details class="group" id="advanced">
+        <summary class="ghead"><span class="gt">Avanceret</span><span class="caret"></span></summary>
+        <div class="field">
+          <label for="askTax">Lagerskat — ASK <span class="v" id="askTax_v"></span></label>
+          <div class="inrow"><input type="number" id="askTax" min="0" step="0.5" value="17"><span class="unit">%</span></div>
+        </div>
+        <div class="field">
+          <label for="lowRate">Aktieindkomst — lav sats <span class="v" id="lowRate_v"></span></label>
+          <div class="inrow"><input type="number" id="lowRate" min="0" step="0.5" value="27"><span class="unit">%</span></div>
+        </div>
+        <div class="field">
+          <label for="highRate">Aktieindkomst — høj sats <span class="v" id="highRate_v"></span></label>
+          <div class="inrow"><input type="number" id="highRate" min="0" step="0.5" value="42"><span class="unit">%</span></div>
+        </div>
+        <div class="field">
+          <label for="thresh">Progressionsgrænse <span class="v" id="thresh_v"></span></label>
+          <div class="inrow"><input type="number" id="thresh" min="0" step="100" value="79400"><span class="unit">kr</span></div>
+        </div>
+        <div class="field">
+          <label for="reg">Årlig regulering — loft &amp; grænse (§ 20) <span class="v" id="reg_v"></span></label>
+          <div class="inrow"><input type="number" id="reg" min="0" step="0.5" value="2"><span class="unit">%</span></div>
+        </div>
+        <div class="field">
+          <label for="threshUsed">Progressionsgrænse brugt af andet <span class="v" id="threshUsed_v"></span></label>
+          <div class="inrow"><input type="number" id="threshUsed" min="0" step="1000" value="0"><span class="unit">kr/år</span></div>
+        </div>
+        <div class="presets" data-group="fee" style="margin-top:6px"><span class="plabel">Kurtage</span><button class="chip" data-group="fee" data-fund="Nordnet">Nordnet</button><button class="chip" data-group="fee" data-fund="Saxo">Saxo</button></div>
+        <div class="field">
+          <label for="feePct">Kurtage — procent <span class="v" id="feePct_v"></span></label>
+          <div class="inrow"><input type="number" id="feePct" min="0" step="0.01" value="0.1"><span class="unit">%</span></div>
+        </div>
+        <div class="field">
+          <label for="feeMin">Kurtage — minimum <span class="v" id="feeMin_v"></span></label>
+          <div class="inrow"><input type="number" id="feeMin" min="0" step="1" value="25"><span class="unit">kr</span></div>
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="redeposit" checked> Fyld ASK op ved salg fra frit depot</label>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Satserne er 2026-regler og står her til stresstest. «Brugt af andet» er aktieindkomst du i forvejen har hvert år (fx udbytter fra enkeltaktier) — den æder af 27 %-båndet i både opsparings- og salgsårene.</p>
+      </details>
+
+      <div class="group">
+        <button class="reset" id="reset">Nulstil til standardværdier</button>
+      </div>
+
+    </div>
+
+    <!-- chart -->
+    <div class="viz">
+      <div class="vtop">
+        <div class="legend">
+          <span class="lg"><span class="ln" style="border-color:var(--ask)"></span> Maksimér ASK</span>
+          <span class="lg"><span class="ln" style="border-color:var(--ask); border-top-style:dashed; opacity:.65"></span> heraf på ASK-kontoen</span>
+          <span class="lg"><span class="ln" style="border-color:var(--tax)"></span> Kun frit depot</span>
+          <span class="lg"><span class="bd band" style="opacity:1;background:var(--gap)"></span> ASK-fordel</span>
+        </div>
+        <div class="seg" role="group" aria-label="Vis i nominelle eller reale kroner">
+          <button id="seg_nom" aria-pressed="true">Nominelt</button>
+          <button id="seg_real" aria-pressed="false">Realt</button>
+        </div>
+      </div>
+      <div class="chartbox" id="chartbox">
+        <svg class="chart" id="chart" viewBox="0 0 1040 460" role="img" aria-label="Formue efter skat over tid: aktiesparekonto-strategi vs. frit depot"></svg>
+        <div class="tip" id="tip"></div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>formue efter skat hvis du sælger i det givne år</strong> — for det frie depot er den latente realisationsskat altså trukket fra på hvert punkt, ikke kun til sidst.</p>
+    </div>
+  </div>
+
+  <!-- breakdown -->
+  <section class="detail">
+    <h2>Tal bag sammenligningen</h2>
+    <p class="lead">Begge strategier modtager nøjagtig samme indbetalinger. «Maksimér ASK» fylder aktiesparekontoen op først og lægger alt over loftet i det frie depot — så det er kun den del, der reelt er afskærmet, der adskiller de to.</p>
+    <table class="bd">
+      <thead>
+        <tr>
+          <th>Efter horisonten</th>
+          <th><span class="hd-swatch"><span class="swatch" style="background:var(--ask)"></span>Maksimér ASK</span></th>
+          <th><span class="hd-swatch"><span class="swatch" style="background:var(--tax)"></span>Kun frit depot</span></th>
+        </tr>
+      </thead>
+      <tbody id="bdbody"></tbody>
+    </table>
+    <p style="font-size:12px;color:var(--muted);margin:12px 0 0" id="splitnote"></p>
+  </section>
+
+  <!-- notes -->
+  <section class="notes">
+    <h2>Sådan regner modellen</h2>
+    <p class="lead">Måned-for-måned-simulering med årlig skatteopgørelse. Alle satser nedenfor er redigerbare felter, så du kan stressteste antagelser.</p>
+    <div class="cols">
+      <p><strong>Aktiesparekontoen lagerbeskattes.</strong> Hvert år beskattes hele værditilvæksten — realiseret som urealiseret — med 17 %, og skatten trækkes fra kontoen. Tab fremføres og modregnes i kontoens fremtidige gevinster (men bortfalder, hvis kontoen lukkes). Til gengæld er der ingen stor slutskat: gevinsten er allerede beskattet løbende, så ved salg betales kun kurtage og valutaveksling.</p>
+      <p><strong>Det frie depot realisationsbeskattes.</strong> Med en realisationsbeskattet, minimumsbeskattet aktiefond (forudfyldt med STIIAM) udskydes skatten på kursgevinsten til salg, mens den årlige minimumsindkomst beskattes som aktieindkomst hvert år. Skatteudskydelsen er depotets store fordel — kursgevinsten forrentes ubeskåret indtil du sælger. Delsalg regnes efter gennemsnitsmetoden.</p>
+      <p><strong>Forskellige fonde i de to spande.</strong> Inde i ASK beskattes alt med 17 % uanset fondstype, så man vælger den billigste akkumulerende verdens-ETF (forudfyldt med WEBN, TER 0,07 %). Uden for ASK ville en akkumulerende ETF derimod blive lagerbeskattet til 27/42 %, så man vælger en realisationsbeskattet minimumsbeskattet fond i stedet (skift mellem STIIAM, SPIIMA og SPVIGAKL med knapperne øverst i sektionen). Den typisk lidt højere omkostningsprocent og valutavekslingen er prisen for ASK'ens lave skat. Alle omkostninger er TER — ikke ÅOP — så ind- og udtrædelsessatser er bevidst ikke medregnet: du handler typisk med en anden markedsdeltager inden for spændet, og det reelle spænd varierer for både danske fonde og ETF'er. Bemærk også, at fondene ikke følger præcis samme indeks (WEBN er large/mid cap; Sparindex-fondene er ESG-screenede), og at udenlandsk kildeskat inde i fondene ligger implicit i dit bruttoafkast — modellen antager samme bruttoafkast for alle.</p>
+      <p><strong>Udbytte: kontant eller teknisk.</strong> SPVIGAKL og SPIIMA udbetaler kontant udbytte: modellen beskatter det og geninvesterer resten, så anskaffelsessummen stiger med nettobeløbet. STIIAM udlodder ikke kontant — minimumsindkomsten er «teknisk»: du beskattes af den, anskaffelsessummen opskrives med bruttobeløbet, og modellen finansierer skatten ved at sælge lidt af beholdningen. Procenterne er gennemsnit af indkomstårene 2024–25 målt mod kurs medio 2026: STIIAM 1,4 %, SPVIGAKL 3,2 % (svinger reelt ca. 1,8–5 % afhængigt af fondens realiserede gevinster). SPIIMA er ny (maj 2026) uden historik og arver SPVIGAKL's sats som proxy — ren antagelse.</p>
+      <p><strong>Valutaveksling kun i ASK.</strong> De billige verdens-ETF'er handles typisk i euro, og hverken Nordnet eller Saxo tillader valutakonti på en aktiesparekonto, så der veksles automatisk DKK↔EUR — her som standard 0,25 % hver vej. De danske fonde er i kroner, så her er der ingen veksling. Løbende køb regnes kurtagefri (svarende til månedsopsparing — bemærk at vekslingen stadig betales dér).</p>
+      <p><strong>Loftet er et indskudsloft, ikke et formueloft.</strong> 174.200 kr. i 2026 (dobbelt for par, se nedenfor). Plads til indskud opgøres mod kontoens værdi pr. 31. december (aktiesparekontolovens § 9): vokser værdien over loftet, kan du ikke indskyde mere, men du behøver ikke sælge. Modellen lægger derfor alt over loftet i det frie depot — i begge strategier — så den marginale krone over loftet er ens og kun den afskærmede del tæller.</p>
+      <p><strong>ASK-skatten betales udefra.</strong> Lagerskatten trækkes fra aktiesparekontoen, men den må altid genindskydes — også selvom kontoen står over loftet (§ 9, stk. 2). I «Maksimér ASK» fyldes kontoen derfor straks op igen — først af årets indbetalinger, og rækker de ikke, ved at sælge tilsvarende fra det frie depot (kan slås fra under Avanceret). Så længe du indbetaler mere end skatten, sker der ingen tvangssalg; kun en ren lump-sum-opsparer uden løbende indbetalinger tærer på depotet for at holde ASK'en fuld. Over lange horisonter er det bedre at holde mest muligt i den lavt beskattede spand; ved meget korte resthorisonter kan det koste mere i fremrykket realisationsskat, end det sparer.</p>
+      <p><strong>Gift?</strong> Fluebenet fordobler både loftet (I kan oprette hver jeres aktiesparekonto) og progressionsgrænsen (uudnyttet grundbeløb overføres automatisk mellem ægtefæller, der er samlevende ved årets udløb — personskattelovens § 8 a, stk. 4). Det forudsætter altså reelt, at I begge opretter konti og lægger fælles økonomi til grund.</p>
+      <p><strong>Loft og grænse reguleres årligt.</strong> Både indskudsloftet og progressionsgrænsen følger personskattelovens § 20 (senest +3,9 % i 2025 og +4,8 % i 2026). Modellen fremskriver begge med samme redigerbare sats — standard 2 % p.a., hvilket er konservativt. Det allerede vedtagne ekstraløft af progressionsgrænsen fra 2027 (til 83.100 kr. i 2025-niveau) er ikke kodet ind; også dét gør modellen en anelse hård ved det frie depot. Grænsen antages fortsat reguleret i udtrækningsårene, og «Progressionsgrænse brugt af andet» (Avanceret) trækkes fra båndet i alle år.</p>
+      <p><strong>To måder at sælge ud på.</strong> «Fast antal år» fordeler salget ligeligt over de valgte år; «Op til grænsen» sælger netop progressionsgrænsen i gevinst om året, så alt rammer den lave sats, og viser hvor mange år det tager — bliver det til mange årtier, er det matematisk korrekt men næppe realistisk, og værktøjet advarer. «Skattehøst» gør det samme undervejs i opsparingen: realisér gevinst op til grænsen hvert år og genkøb, så anskaffelsessummen trinnes op og slutskattens 42 %-del skrumper. Det er reelt frivillig lagerbeskatning — bare til 27 % i stedet for ASK'ens 17 % og med kurtage oveni — så det hjælper kun, når slutsalget ellers ville ramme den høje sats, og sjældent nok til at betale sig. Da «Op til grænsen» allerede realiserer op til grænsen hvert år, er skattehøst kun tilgængelig sammen med «Fast antal år». Praktisk detalje: Danmark har ingen egentlig wash-sale-regel, men genkøb <em>samme dag</em> risikerer at blive tilsidesat skattemæssigt (Den juridiske vejledning C.B.2.1.4.10) — vent mindst en handelsdag og handl til markedskurs.</p>
+      <p><strong>Inflation rammer lager hårdere.</strong> Skatten beregnes af nominelle gevinster, så lagerbeskatningen tærer også på den inflationsskabte del af afkastet hvert år. Reale tal er nominelle tal deflateret med din inflationsantagelse frem til det viste år.</p>
+      <p><strong>Det nye regeringsudspil.</strong> Regeringsgrundlaget (juni 2026) vil hæve loftet til 500.000 kr. og opgøre det efter oprindeligt indskud frem for løbende værdi — en politisk målsætning, ikke vedtaget lov. Du kan tilnærme effekten ved at sætte <code>Indskudsloft = 500000</code>. Den varslede undersøgelse af en norsk-inspireret beskatning ved udtræk ville ændre selve lagerprincippet og er ikke modelleret.</p>
+      <p><strong>Forenklinger.</strong> Deterministisk afkast — ingen volatilitet, så ASK'ens tabsfremførsel udløses ikke i standardscenariet; med udsving betaler ASK skat i gode år, mens tab kun fremføres, så fordelen bliver typisk lidt mindre end vist (en Monte Carlo-udgave er på ønskelisten). Skat betales af spanden selv og trækkes i modellen 31/12 — reelt hæves ASK-skatten først medio februar året efter og aktieskat via årsopgørelsen, så modellen er en anelse konservativ. Kurtage (max-modellen fra Nordnet/Saxo) lægges kun på de aktive handler — skattehøst, ASK-finansiering og slutsalg i begge spande — ikke på løbende køb og geninvestering af udbytter; gevinst og kurtage på det lille salg, der finansierer skatten af teknisk udbytte, ignoreres. Ved fordelt udtrækning antages restbeholdningen ikke at vokse eller udlodde i udtrækningsårene (let konservativt, og ens for begge spande). Skattestyrelsens positivliste opdateres årligt — ryger en ETF af listen, ændres dens beskatning uden for ASK. Personfradrag og modregning af afkast i offentlige ydelser — hvor ASK'en har en yderligere fordel, da dens afkast ikke tæller med — er ikke medregnet. Sammenligninger med pensionsordninger (alders-/ratepension) er uden for værktøjets scope.</p>
+    </div>
+    <p class="disc">Værktøjet er til at oplyse din egen beslutning og er ikke skatterådgivning eller en anbefaling. 2026-satser pr. Skattestyrelsen; fonds-TER, udbytteprocenter og vekselgebyrer er vejledende og ændrer sig. Kontrollér aktuelle tal hos din udbyder og skat.dk. Kildekode og tests: <a href="https://github.com/kimsey0/aktiesparekonto" style="color:inherit">github.com/kimsey0/aktiesparekonto</a>.</p>
+  </section>
+
+</div>
+
+<script src="sim.js"></script>
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const nf0 = new Intl.NumberFormat('da-DK',{maximumFractionDigits:0});
+  const nf1 = new Intl.NumberFormat('da-DK',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const nf2 = new Intl.NumberFormat('da-DK',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const kr  = x => nf0.format(Math.round(x)) + ' kr.';
+  const krSigned = x => (x>=0?'+':'−') + nf0.format(Math.round(Math.abs(x))) + ' kr.';
+  const pct1 = x => nf1.format(x) + ' %';
+
+  // pair a range slider with a number input (two-way)
+  function pair(numId, rangeId){
+    const n=$(numId), r=$(rangeId);
+    if(r){ r.addEventListener('input',()=>{ n.value=r.value; render(); });
+           n.addEventListener('input',()=>{ r.value=n.value; render(); }); }
+    else { n.addEventListener('input', render); }
+  }
+
+  const DEFAULTS = {initial:100000, monthly:4000, horizon:20, gross:7, infl:2,
+    askTer:0.07, askForex:0.25, askTax:17, ceiling:174200,
+    taxTer:0.30, taxDiv:1.4, lowRate:27, highRate:42, thresh:79400, married:false, liq:1,
+    harvest:false, feePct:0.1, feeMin:25, threshUsed:0, reg:2, redeposit:true};
+
+  function readParams(){
+    const v = id => { const x=parseFloat($(id).value); return isFinite(x)?x:0; };
+    return {
+      initial:v('initial'), monthly:v('monthly'), horizon:Math.max(1,Math.round(v('horizon'))),
+      gross:v('gross')/100, infl:v('infl')/100,
+      askTer:v('askTer')/100, askForex:v('askForex')/100, askTax:v('askTax')/100,
+      askCeiling:v('ceiling'), reg:v('reg')/100,
+      taxTer:v('taxTer')/100, taxDiv:v('taxDiv')/100, divMode,
+      taxLow:v('lowRate')/100, taxHigh:v('highRate')/100, threshold:v('thresh'),
+      threshUsed:v('threshUsed'),
+      married:$('married').checked, liqYears:Math.max(1,Math.round(v('liq'))), redeposit:$('redeposit').checked,
+      drawMode, harvest: drawMode!=='kink' && $('harvest').checked, feePct:v('feePct')/100, feeMin:v('feeMin')
+    };
+  }
+
+  // Beregningslogikken (aktieTax, bracketTax, drawdown, simulate) ligger i sim.js,
+  // så den kan læses og testes for sig:  node test/sim.test.js
+  const {simulate} = window.ASKSIM;
+
+  // ---------- chart ----------
+  let chartState=null;
+  function niceTop(v){
+    if(v<=0) return 1;
+    const p=Math.pow(10,Math.floor(Math.log10(v)));
+    const n=v/p;
+    const step = n<=1?1 : n<=2?2 : n<=2.5?2.5 : n<=5?5 : 10;
+    return step*p;
+  }
+  function fmtAxis(v){
+    if(v>=1e6) return nf1.format(v/1e6)+' mio.';
+    if(v>=1e3) return nf0.format(v/1e3)+'k';
+    return nf0.format(v);
+  }
+  function renderChart(R, real){
+    const svg=$('chart');
+    const W=1040,H=460, pl=66, pr=18, pt=22, pb=34;
+    const iw=W-pl-pr, ih=H-pt-pb;
+    const s=R.series, n=s.length;
+    // real mode: each year is deflated by ITS OWN year's inflation factor
+    const def = i => real ? s[i].defl : 1;
+    const valA = i => s[i].A/def(i), valB = i => s[i].B/def(i), valAsk = i => s[i].ask/def(i);
+    let maxV=0; for(let i=0;i<n;i++){ maxV=Math.max(maxV, valA(i), valB(i)); }
+    const top=niceTop(maxV*1.02);
+    const X = yr => pl + (n<=1?0:(yr-1)/(s[n-1].year-1||1))*iw;
+    const Y = v => pt + ih - (v/top)*ih;
+
+    const pathFrom = fn => { let d=''; for(let i=0;i<n;i++){ d += (i?'L':'M')+X(s[i].year).toFixed(1)+' '+Y(fn(i)).toFixed(1); } return d; };
+    // band between A (top) and B (bottom)
+    let band='M';
+    for(let i=0;i<n;i++){ band+=(i?'L':'')+X(s[i].year).toFixed(1)+' '+Y(valA(i)).toFixed(1)+' '; }
+    for(let i=n-1;i>=0;i--){ band+='L'+X(s[i].year).toFixed(1)+' '+Y(valB(i)).toFixed(1)+' '; }
+    band+='Z';
+
+    // gridlines / y labels
+    const ticks=5; let grid='', ylab='';
+    for(let t=0;t<=ticks;t++){
+      const v=top*t/ticks, yy=Y(v);
+      grid+=`<line x1="${pl}" y1="${yy.toFixed(1)}" x2="${pl+iw}" y2="${yy.toFixed(1)}"/>`;
+      ylab+=`<text x="${pl-10}" y="${(yy+4).toFixed(1)}" text-anchor="end">${fmtAxis(v)}</text>`;
+    }
+    // x labels
+    const maxYr=s[n-1].year;
+    let step=1; if(maxYr>30)step=5; else if(maxYr>15)step=5; else if(maxYr>8)step=2;
+    let xlab='';
+    for(let yr=step; yr<=maxYr; yr+=step){ xlab+=`<text x="${X(yr).toFixed(1)}" y="${H-12}" text-anchor="middle">${yr}</text>`; }
+    xlab+=`<text x="${X(1).toFixed(1)}" y="${H-12}" text-anchor="middle">1</text>`;
+
+    // loft marker
+    let loft='';
+    if(R.firstOverflow && R.firstOverflow<=maxYr && R.firstOverflow>1){
+      const lx=X(R.firstOverflow);
+      loft=`<line class="loft" x1="${lx.toFixed(1)}" y1="${pt}" x2="${lx.toFixed(1)}" y2="${pt+ih}"/>`+
+           `<text class="loft-t" x="${(lx+5).toFixed(1)}" y="${pt+12}">ASK fyldt op</text>`;
+    }
+
+    svg.innerHTML =
+      `<g class="grid">${grid}</g>`+
+      `<path class="band" d="${band}"/>`+
+      loft+
+      `<path class="lineB" d="${pathFrom(valB)}"/>`+
+      `<path class="lineAsk" d="${pathFrom(valAsk)}"/>`+
+      `<path class="lineA" d="${pathFrom(valA)}"/>`+
+      `<circle class="dotB" cx="${X(maxYr).toFixed(1)}" cy="${Y(valB(n-1)).toFixed(1)}" r="3.5"/>`+
+      `<circle class="dotA" cx="${X(maxYr).toFixed(1)}" cy="${Y(valA(n-1)).toFixed(1)}" r="3.5"/>`+
+      `<g class="axis">${ylab}${xlab}</g>`+
+      `<g id="hover"></g>`;
+
+    chartState={s,n,X,Y,pl,pr,pt,pb,iw,ih,W,H,def,valA,valB,real};
+  }
+
+  function onHover(evt){
+    if(!chartState) return;
+    const svg=$('chart'), tip=$('tip'), box=$('chartbox');
+    const rect=svg.getBoundingClientRect();
+    const cs=chartState;
+    const px=(evt.clientX-rect.left)/rect.width*cs.W;
+    // nearest year index
+    let bi=0, bd=1e9;
+    for(let i=0;i<cs.n;i++){ const d=Math.abs(cs.X(cs.s[i].year)-px); if(d<bd){bd=d;bi=i;} }
+    const xx=cs.X(cs.s[bi].year), yA=cs.Y(cs.valA(bi)), yB=cs.Y(cs.valB(bi));
+    const g=document.getElementById('hover');
+    if(g){
+      g.innerHTML=
+        `<line class="guide" x1="${xx.toFixed(1)}" y1="${cs.pt}" x2="${xx.toFixed(1)}" y2="${cs.pt+cs.ih}"/>`+
+        `<circle class="dotA" cx="${xx.toFixed(1)}" cy="${yB.toFixed(1)}" r="4" fill="var(--tax)"/>`+
+        `<circle class="dotA" cx="${xx.toFixed(1)}" cy="${yA.toFixed(1)}" r="4" fill="var(--ask)"/>`;
+    }
+    const A=cs.valA(bi), B=cs.valB(bi), gap=A-B;
+    tip.innerHTML =
+      `<div class="ty">År ${cs.s[bi].year}${cs.real?' · realt':''}</div>`+
+      `<div class="tr"><span class="k"><span class="sw" style="background:var(--ask)"></span>Maksimér ASK</span><span>${kr(A)}</span></div>`+
+      `<div class="tr"><span class="k"><span class="sw" style="background:var(--tax)"></span>Kun frit depot</span><span>${kr(B)}</span></div>`+
+      `<div class="tr tg"><span class="k">ASK-fordel</span><span class="${gap>=0?'pos':'neg'}">${krSigned(gap)}</span></div>`;
+    tip.style.left=(xx/cs.W*rect.width)+'px';
+    tip.style.top=(Math.min(yA,yB)/cs.H*rect.height)+'px';
+    tip.style.opacity=1;
+  }
+  function offHover(){ const t=$('tip'); if(t)t.style.opacity=0; const g=document.getElementById('hover'); if(g)g.innerHTML=''; }
+
+  // ---------- render everything ----------
+  let showReal=false;
+  let drawMode='years';
+  let divMode='tech';
+  function render(){
+    const P=readParams();
+    // label echoes
+    $('initial_v').textContent=kr(P.initial);
+    $('monthly_v').textContent=nf0.format(P.monthly)+' kr/md';
+    $('horizon_v').textContent=P.horizon+' år';
+    $('gross_v').textContent=pct1(P.gross*100);
+    $('infl_v').textContent=pct1(P.infl*100);
+    $('askTer_v').textContent=nf2.format(P.askTer*100)+' %';
+    $('askForex_v').textContent=nf2.format(P.askForex*100)+' %';
+    $('askTax_v').textContent=nf0.format(P.askTax*100)+' %';
+    $('ceiling_v').textContent=nf0.format(P.askCeiling*(P.married?2:1))+' kr';
+    $('reg_v').textContent=pct1(P.reg*100);
+    $('threshUsed_v').textContent=nf0.format(P.threshUsed)+' kr/år';
+    $('taxTer_v').textContent=nf2.format(P.taxTer*100)+' %';
+    $('taxDiv_v').textContent=pct1(P.taxDiv*100);
+    $('lowRate_v').textContent=nf0.format(P.taxLow*100)+' %';
+    $('highRate_v').textContent=nf0.format(P.taxHigh*100)+' %';
+    $('thresh_v').textContent=nf0.format(P.threshold*(P.married?2:1))+' kr';
+    $('liq_v').textContent=P.liqYears+(P.liqYears===1?' år (engangssalg)':' år');
+    $('feePct_v').textContent=nf2.format(P.feePct*100)+' %';
+    $('feeMin_v').textContent=nf0.format(P.feeMin)+' kr';
+    const kink=drawMode==='kink';
+    $('liqField').classList.toggle('hide', kink);
+    $('drawNote').textContent = kink
+      ? 'Du sælger op til progressionsgrænsen hvert år, så alt beskattes med den lave sats. Hvor mange år det tager, står i tabellen nedenfor.'
+      : (P.liqYears===1
+          ? 'Sælger du hele det frie depot på én gang, ryger gevinsten over grænsen op i den høje sats. Spred salget for at bruge den lave sats hvert år.'
+          : 'Gevinsten fordeles ligeligt over årene, så en større del beskattes med den lave 27 %-sats.');
+    $('harvest').disabled = kink;
+    $('harvestField').classList.toggle('dim', kink);
+    $('harvestNote').textContent = kink
+      ? '«Op til grænsen» realiserer allerede op til progressionsgrænsen hvert år under udtrækningen, så at høste oveni ville bare betale den samme skat tidligere. Skattehøst gælder derfor kun «Fast antal år».'
+      : 'Sælg og genkøb hvert år, så netop progressionsgrænsen fyldes med 27 %-gevinst — i praksis frivillig lagerbeskatning, bare til 27 % i stedet for ASK\'ens 17 % og med kurtage oveni. Hjælper kun, hvis slutsalget ellers ville ramme 42 %-trinnet, og sjældent nok til at betale sig.';
+
+    const R=simulate(P);
+    if(kink && Math.max(R.A_years,R.B_years)>30){
+      $('drawNote').textContent += ' Med de valgte tal tager udsalget '+Math.max(R.A_years,R.B_years)+' år — matematisk korrekt, men næppe realistisk; overvej at acceptere noget 42 %-skat i stedet.';
+    }
+    const def=R.deflate;
+    const A=R.A_after, B=R.B_after, gap=A-B;
+
+    $('A_big').textContent=kr(A);
+    $('A_real').textContent='realt '+kr(A/def);
+    $('B_big').textContent=kr(B);
+    $('B_real').textContent='realt '+kr(B/def);
+    $('gap_big').innerHTML=`<span class="${gap>=0?'pos':'neg'}">${krSigned(gap)}</span>`;
+    const gp = B>0 ? (gap/B*100) : 0;
+    $('gap_pct').innerHTML=`<span class="${gap>=0?'pos':'neg'}">${(gap>=0?'+':'−')+nf1.format(Math.abs(gp))} % efter skat</span>`;
+
+    // breakdown table
+    const gainA=A-R.contributed, gainB=B-R.contributed;
+    const preA=gainA+R.A_tax+R.A_fee, preB=gainB+R.B_tax+R.B_fee;
+    const effA = preA>0 ? R.A_tax/preA*100 : 0;
+    const effB = preB>0 ? R.B_tax/preB*100 : 0;
+    const yrsTxt = n => n>0 ? n+' år' : '—';
+    const rows=[
+      ['Samlet indbetalt', kr(R.contributed), kr(R.contributed), false],
+      ['Formue efter skat (nominelt)', kr(A), kr(B), false],
+      ['Formue efter skat (realt)', kr(A/def), kr(B/def), false],
+      ['Gevinst efter skat', kr(gainA), kr(gainB), false],
+      ['Skat betalt i alt', kr(R.A_tax), kr(R.B_tax), false],
+      ['Handelsomkostninger', kr(R.A_fee), kr(R.B_fee), false],
+      ['Effektiv skat af gevinst', pct1(effA), pct1(effB), false],
+      ['År at sælge frit depot ud', yrsTxt(R.A_years), yrsTxt(R.B_years), false],
+      ['Resultat efter skat', kr(A), kr(B), true]
+    ];
+    $('bdbody').innerHTML = rows.map(r=>
+      `<tr class="${r[3]?'tot':''}"><td>${r[0]}</td><td class="colA">${r[1]}</td><td class="colB">${r[2]}</td></tr>`
+    ).join('');
+
+    $('splitnote').innerHTML =
+      `I «Maksimér ASK» ender ${kr(R.askFinal)} på aktiesparekontoen og ${kr(R.overflowFinal)} i det frie depot over loftet (begge efter skat). `+
+      (R.firstOverflow ? `Loftet er fyldt op fra år ${R.firstOverflow}, hvorefter ny opsparing ryger i det frie depot.` :
+                         `Loftet bliver ikke fyldt op inden for horisonten med de valgte indbetalinger.`);
+
+    renderChart(R, showReal);
+  }
+
+  // ---------- wiring ----------
+  ['initial'].forEach(id=>pair(id,null));
+  pair('monthly','monthly_r'); pair('horizon','horizon_r');
+  pair('gross','gross_r'); pair('infl','infl_r'); pair('liq','liq_r');
+  ['askTer','askForex','askTax','ceiling','taxTer','taxDiv','lowRate','highRate','thresh','feePct','feeMin','threshUsed','reg']
+    .forEach(id=>$(id).addEventListener('input',render));
+  $('married').addEventListener('change',render);
+  $('harvest').addEventListener('change',render);
+  $('redeposit').addEventListener('change',render);
+  $('dm_years').addEventListener('click',()=>{ drawMode='years'; $('dm_years').setAttribute('aria-pressed','true'); $('dm_kink').setAttribute('aria-pressed','false'); render(); });
+  $('dm_kink').addEventListener('click',()=>{ drawMode='kink'; $('dm_kink').setAttribute('aria-pressed','true'); $('dm_years').setAttribute('aria-pressed','false'); render(); });
+
+  // ---------- fund presets ----------
+  // Only fund-specific fields are tied to a preset; the active chip clears as soon
+  // as you hand-edit one of those fields, so the name never contradicts the numbers.
+  // dividend %-defaults: gns. udlodning/minimumsindkomst for indkomstårene 2024-25
+  // målt mod kurs medio 2026 (STIIAM 1,4 %, SPVIGAKL 3,2 %); SPIIMA er ny (maj 2026)
+  // uden historik og arver SPVIGAKL's sats som proxy.
+  const FUNDS={
+    ask:{fields:['askTer','askForex'], presets:{ WEBN:{askTer:'0.07', askForex:'0.25'} }},
+    tax:{fields:['taxTer','taxDiv'], presets:{
+      STIIAM:{taxTer:'0.30', taxDiv:'1.4', divMode:'tech'},
+      SPIIMA:{taxTer:'0.35', taxDiv:'3.2', divMode:'cash'},
+      SPVIGAKL:{taxTer:'0.50', taxDiv:'3.2', divMode:'cash'}
+    }},
+    fee:{fields:['feePct','feeMin'], presets:{
+      Nordnet:{feePct:'0.1', feeMin:'25'},
+      Saxo:{feePct:'0.08', feeMin:'10'}
+    }}
+  };
+  let activeFund={ask:'WEBN', tax:'STIIAM', fee:'Nordnet'};
+  function updateFundChips(){
+    document.querySelectorAll('.chip').forEach(c=>{
+      c.classList.toggle('active', activeFund[c.dataset.group]===c.dataset.fund);
+    });
+  }
+  function setDivMode(mode){
+    divMode=mode;
+    $('dv_tech').setAttribute('aria-pressed', mode==='tech'?'true':'false');
+    $('dv_cash').setAttribute('aria-pressed', mode==='cash'?'true':'false');
+  }
+  $('dv_tech').addEventListener('click',()=>{ divModeClick('tech'); });
+  $('dv_cash').addEventListener('click',()=>{ divModeClick('cash'); });
+  function divModeClick(mode){
+    const p=activeFund.tax && FUNDS.tax.presets[activeFund.tax];
+    if(!p || p.divMode!==mode) activeFund.tax=null;   // hand-picked type detaches the fund chip
+    setDivMode(mode); updateFundChips(); render();
+  }
+  function applyFund(group,name){
+    const p=FUNDS[group].presets[name]; if(!p) return;
+    for(const f in p){ if(f==='divMode') setDivMode(p[f]); else $(f).value=p[f]; }
+    activeFund[group]=name; updateFundChips(); render();
+  }
+  document.querySelectorAll('.chip').forEach(c=>{
+    c.addEventListener('click',()=>applyFund(c.dataset.group,c.dataset.fund));
+  });
+  Object.keys(FUNDS).forEach(group=>{
+    FUNDS[group].fields.forEach(f=>{
+      $(f).addEventListener('input',()=>{ activeFund[group]=null; updateFundChips(); });
+    });
+  });
+
+  $('seg_nom').addEventListener('click',()=>{ showReal=false; $('seg_nom').setAttribute('aria-pressed','true'); $('seg_real').setAttribute('aria-pressed','false'); render(); });
+  $('seg_real').addEventListener('click',()=>{ showReal=true; $('seg_real').setAttribute('aria-pressed','true'); $('seg_nom').setAttribute('aria-pressed','false'); render(); });
+
+  $('reset').addEventListener('click',()=>{
+    for(const k in DEFAULTS){
+      const el=$(k); if(!el) continue;
+      if(el.type==='checkbox') el.checked=DEFAULTS[k]; else el.value=DEFAULTS[k];
+      const r=$(k+'_r'); if(r) r.value=DEFAULTS[k];
+    }
+    drawMode='years'; $('dm_years').setAttribute('aria-pressed','true'); $('dm_kink').setAttribute('aria-pressed','false');
+    setDivMode('tech');
+    activeFund={ask:'WEBN', tax:'STIIAM', fee:'Nordnet'}; updateFundChips();
+    render();
+  });
+
+  const cb=$('chartbox');
+  cb.addEventListener('mousemove',onHover);
+  cb.addEventListener('mouseleave',offHover);
+  cb.addEventListener('touchstart',e=>{ if(e.touches[0]) onHover(e.touches[0]); },{passive:true});
+  cb.addEventListener('touchmove',e=>{ if(e.touches[0]) onHover(e.touches[0]); },{passive:true});
+  window.addEventListener('resize',()=>render());
+
+  updateFundChips();
+  render();
+})();
+</script>
+</body>
+</html>
