@@ -7,12 +7,7 @@
 <meta property="og:title" content="Aktiesparekonto vs. frit depot — skatteeffektivitet">
 <meta property="og:description" content="Interaktiv model: 17 % lagerskat mod 27/42 % realisationsskat — med omkostninger, indskudsloft, udbytter og udtrækningsstrategi. 2026-satser.">
 <meta name="description" content="Interaktiv model: 17 % lagerskat mod 27/42 % realisationsskat — med omkostninger, indskudsloft, udbytter og udtrækningsstrategi. 2026-satser.">
-<script>
-// Serveres siden på en mappe-URL uden afsluttende skråstreg (fx /aktiesparekonto),
-// peger relative stier som sim.js på roden. Ret URL'en, før noget indlæses.
-if (!location.pathname.endsWith('/') && !location.pathname.split('/').pop().includes('.'))
-  location.replace(location.pathname + '/' + location.search + location.hash);
-</script>
+<link rel="canonical" href="https://jacobbundgaard.dk/aktiesparekonto">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -440,7 +435,18 @@ if (!location.pathname.endsWith('/') && !location.pathname.split('/').pop().incl
 
 </div>
 
-<script src="sim.js"></script>
+<script>
+// sim.js ligger i samme mappe som denne side. Serveres mappen uden afsluttende
+// skråstreg (fx /aktiesparekonto), ville en almindelig relativ sti pege på roden —
+// så vi regner sidens mappe ud og indlæser derfra. Virker også lokalt (file://)
+// og hvis siden hostes på en anden sti.
+(function(){
+  var p = location.pathname;
+  var dir = /\.[^\/]*$/.test(p) ? p.slice(0, p.lastIndexOf('/') + 1)
+                                : (p.slice(-1) === '/' ? p : p + '/');
+  document.write('<script src="' + dir.replace(/"/g, '%22') + 'sim.js"><\/script>');
+})();
+</script>
 <script>
 (function(){
   "use strict";
