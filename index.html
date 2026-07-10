@@ -7,6 +7,12 @@
 <meta property="og:title" content="Aktiesparekonto vs. frit depot — skatteeffektivitet">
 <meta property="og:description" content="Interaktiv model: 17 % lagerskat mod 27/42 % realisationsskat — med omkostninger, indskudsloft, udbytter og udtrækningsstrategi. 2026-satser.">
 <meta name="description" content="Interaktiv model: 17 % lagerskat mod 27/42 % realisationsskat — med omkostninger, indskudsloft, udbytter og udtrækningsstrategi. 2026-satser.">
+<script>
+// Serveres siden på en mappe-URL uden afsluttende skråstreg (fx /aktiesparekonto),
+// peger relative stier som sim.js på roden. Ret URL'en, før noget indlæses.
+if (!location.pathname.endsWith('/') && !location.pathname.split('/').pop().includes('.'))
+  location.replace(location.pathname + '/' + location.search + location.hash);
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
