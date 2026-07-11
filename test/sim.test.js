@@ -12,6 +12,7 @@ const BASE = {
 };
 const P = o => Object.assign({}, BASE, o);
 const FLAT = () => 79400;   // threshold function for drawdown tests with reg = 0
+const L = (base = 0) => ({ base, income: 0, tax: 0, carry: 0 });   // fresh year ledger
 const r2 = x => Math.round(x * 100) / 100;
 let fails = 0;
 function check(name, got, want, tol = 0.01) {
@@ -50,22 +51,22 @@ function check(name, got, want, tol = 0.01) {
 // T4: drawdown — both strategies, flat threshold (reg = 0). gross = 0 keeps the
 // position from growing during the sale years, so the slices stay hand-computable.
 {
-  const d1 = drawdown(1000000, 400000, P({ liqYears: 1, gross: 0 }), FLAT, 0);
+  const d1 = drawdown(1000000, 400000, P({ liqYears: 1, gross: 0 }), FLAT, L());
   check('T4 lump-sum sale', d1.tax, 79400 * 0.27 + 520600 * 0.42);
-  const d2 = drawdown(1000000, 400000, P({ drawMode: 'kink', gross: 0 }), FLAT, 0);
+  const d2 = drawdown(1000000, 400000, P({ drawMode: 'kink', gross: 0 }), FLAT, L());
   check('T4 up-to-threshold tax', d2.tax, 600000 * 0.27);
   check('T4 up-to-threshold years', d2.years, 8, 0);
-  const d3 = drawdown(1000000, 400000, P({ liqYears: 10, gross: 0 }), FLAT, 0);
+  const d3 = drawdown(1000000, 400000, P({ liqYears: 10, gross: 0 }), FLAT, L());
   check('T4 spread over 10 years', d3.tax, 10 * 60000 * 0.27);
 }
 
 // T4b-e: the threshold during the sale years — used band, degenerate cases
 {
-  const d2 = drawdown(1000000, 920600, P({ liqYears: 1, gross: 0 }), FLAT, 79400);
+  const d2 = drawdown(1000000, 920600, P({ liqYears: 1, gross: 0 }), FLAT, L(79400));
   check('T4c band fully used -> all at high rate', d2.tax, 79400 * 0.42);
-  const d3 = drawdown(1000000, 400000, P({ drawMode: 'kink', gross: 0, threshUsed: 39400 }), FLAT, 39400);
+  const d3 = drawdown(1000000, 400000, P({ drawMode: 'kink', gross: 0, threshUsed: 39400 }), FLAT, L(39400));
   check('T4d 40k free band per year -> 15 years', d3.years, 15, 0);
-  const d4 = drawdown(1000000, 400000, P({ drawMode: 'kink', gross: 0, threshUsed: 100000 }), FLAT, 100000);
+  const d4 = drawdown(1000000, 400000, P({ drawMode: 'kink', gross: 0, threshUsed: 100000 }), FLAT, L(100000));
   check('T4e band never opens -> forced sale, all at 42%', d4.tax, 600000 * 0.42);
   check('T4e forced flag set', d4.forced ? 1 : 0, 1, 0);
   check('T4e kink window capped at 30 years', d4.years, 30, 0);
@@ -76,7 +77,7 @@ function check(name, got, want, tol = 0.01) {
 // year 1 sells 50,000 (gain 5,000 -> tax 1,350); the rest grows to 55,000
 // (gain 10,000) and is sold in year 2 (tax 2,700). Both years fit the band.
 {
-  const d = drawdown(100000, 90000, P({ drawMode: 'kink', gross: 0.10 }), FLAT, 0, 2);
+  const d = drawdown(100000, 90000, P({ drawMode: 'kink', gross: 0.10 }), FLAT, L(), 2);
   check('T4g slack bucket spreads into the window', d.after, 48650 + 52300);
   check('T4g tax', d.tax, 1350 + 2700);
   check('T4g years', d.years, 2, 0);
@@ -88,29 +89,40 @@ function check(name, got, want, tol = 0.01) {
 // year 1 sells 50,000 (gain 25,000 -> tax 6,750); the remaining 50,000 (basis
 // 25,000) grows to 55,000; year 2 sells all (gain 30,000 -> tax 8,100).
 {
-  const d = drawdown(100000, 50000, P({ liqYears: 2, gross: 0.10 }), FLAT, 0);
+  const d = drawdown(100000, 50000, P({ liqYears: 2, gross: 0.10 }), FLAT, L());
   check('T4f growth during sale years: tax', d.tax, 6750 + 8100);
   check('T4f growth during sale years: withdrawals', d.after, 43250 + 46900);
   check('T4f years', d.years, 2, 0);
 }
 
-// T5: dividend bookkeeping. 1 year, 2% distribution, 0% return.
-// The base is the holdings at the start of the year (here: the January lump sum).
+// T5: dividend bookkeeping with annual netting. 1 year, 2% distribution, 0%
+// return. The dividend (2,000, taxed 540) steps up the basis, so the final
+// sale realises a matching loss; netted annually, income is 0 and the 540 is
+// refunded — the saver ends where they started.
 {
-  // cash: div=2,000, tax=540 -> v=99,460, basis=100,000+1,460 (net reinvested)
+  // cash: div=2,000, tax=540 -> v=99,460, basis=101,460; sale loss -2,000
+  // cancels the dividend, refunding the 540.
   const R = simulate(P({ gross: 0, taxDiv: 0.02 }));
-  check('T5 cash dividend', R.B_after, 99460);
-  // technical: value only drops by the tax (funded by selling), basis is stepped
-  // up gross minus the proportional cost basis of the shares sold
+  check('T5 cash dividend nets against the sale loss', R.B_after, 100000);
+  check('T5 no net tax', R.B_tax, 0);
+  // technical: basis steps up gross (102,000) minus the proportional cost basis
+  // of the tax-funding sliver (540*1.02=550.80) -> 101,449.20, v=99,460.
+  // Sale loss 1,989.20 nets against the 2,000 dividend: income 10.80 (the
+  // sliver's ignored loss), tax 2.92 -> 99,997.08.
   const R2 = simulate(P({ gross: 0, taxDiv: 0.02, divMode: 'tech' }));
-  check('T5b technical dividend', R2.B_after, 99460);
+  check('T5b technical dividend nets too', R2.B_after, 99997.08, 0.01);
 }
 
 // T5c: entitlement — contributions after January get no dividend in their first
 // year (the funds' ex-dates are Feb-Apr), so only the January purchase counts.
+// 2 years, 0% return: year 1 divBase=1,000 -> div 20, tax 5.40. Year 2
+// divBase=12,994.60 -> div 259.89, tax 70.17 — refunded in full at the final
+// sale (the accumulated basis step-ups realise as a matching loss), so only
+// the year-1 tax, whose loss counterpart dies with the horizon, sticks.
 {
-  const R = simulate(P({ initial: 0, monthly: 1000, gross: 0, taxDiv: 0.02 }));
-  check('T5c dividend on January holdings only', R.B_tax, 1000 * 0.02 * 0.27);
+  const R = simulate(P({ initial: 0, monthly: 1000, horizon: 2, gross: 0, taxDiv: 0.02 }));
+  check('T5c dividend on January holdings only', R.B_tax, 5.40, 0.01);
+  check('T5c net proceeds', R.B_after, 24000 - 5.40, 0.01);
 }
 
 // T6: in up-to-threshold mode (everything ends at 27%) a larger distribution must
@@ -131,10 +143,11 @@ function check(name, got, want, tol = 0.01) {
   check('T7 double ceiling', R2.askFinal, 2 * R1.askFinal, 1);
 }
 
-// T8: "band used by other income" pushes the dividend tax into the high rate
+// T8: "band used by other income" pushes the year's share income into the high
+// rate. 7% return, 2% distribution: div 2,000 + sale gain 5,000 = 7,000 income.
 {
-  check('T8 low band', simulate(P({ gross: 0, taxDiv: 0.02 })).B_tax, 2000 * 0.27);
-  check('T8 high band', simulate(P({ gross: 0, taxDiv: 0.02, threshUsed: 200000 })).B_tax, 2000 * 0.42);
+  check('T8 low band', simulate(P({ taxDiv: 0.02 })).B_tax, 7000 * 0.27);
+  check('T8 high band', simulate(P({ taxDiv: 0.02, threshUsed: 200000 })).B_tax, 7000 * 0.42);
 }
 
 // T9: refill toggle — when off, nothing is sold from the taxable account
@@ -226,13 +239,16 @@ function check(name, got, want, tol = 0.01) {
   check('T14 depot gain measured against gross basis', R.B_tax, (v - 10000 - 25) * 0.27);
 }
 
-// T15: the 2027 threshold uplift is its own parameter. 1M lump sum, 8.5%
-// cash distribution, 0% return: year 1 (2026) taxes 85,000 against 79,400
-// (23,790); year 2 taxes 8.5% of 976,210 = 82,977.85 against 87,100 — all at
-// the low rate (22,404.02). The final sale has no gain (basis was stepped up).
+// T15: the 2027 threshold uplift is its own parameter and applies from year 2.
+// 1M lump sum, 10% return, 8.5% cash distribution: year-2 share income
+// (dividend 91,477.85 + a positive sale gain) exceeds both threshold variants,
+// so raising the year-2 threshold from 79,400 to 87,100 must save exactly
+// 7,700 x (42% - 27%) = 1,155.
 {
-  const R = simulate(P({ initial: 1000000, horizon: 2, gross: 0, taxDiv: 0.085, threshold27: 87100 }));
-  check('T15 2027 uplift applies from year 2', R.B_tax, 23790 + 22404.02, 0.1);
+  const D = { initial: 1000000, horizon: 2, gross: 0.10, taxDiv: 0.085 };
+  const R87 = simulate(P(Object.assign({}, D, { threshold27: 87100 })));
+  const R79 = simulate(P(Object.assign({}, D, { threshold27: 79400 })));
+  check('T15 2027 uplift applies from year 2', R79.B_tax - R87.B_tax, 7700 * 0.15, 0.1);
 }
 
 // T16: real mode deflates every withdrawal by its own payout year.
@@ -300,6 +316,43 @@ function check(name, got, want, tol = 0.01) {
   check('T20 harvest + final-sale tax', R.B_tax, 2670.30 + 2831.28);
   check('T20 fees (sell + buy + final sale)', R.B_fee, 110 + 107.22 + 117.82);
   check('T20 net proceeds', R.B_after, 114874.63);
+}
+
+// T21: losses carry forward between drawdown years. 100k with basis 105k, 30%
+// p.a., 2 sale years: year 1 sells 50,000 realising a 2,500 loss (no tax, the
+// loss is carried); the remaining 50,000 (basis 52,500) grows to 65,000;
+// year 2 sells all, gain 12,500, of which 2,500 is absorbed by the carry ->
+// tax on 10,000 at 27% = 2,700.
+{
+  const d = drawdown(100000, 105000, P({ liqYears: 2, gross: 0.30 }), FLAT, L());
+  check('T21 loss carryforward absorbs later gains', d.tax, 2700);
+  check('T21 withdrawals', d.after, 50000 + 65000 - 2700);
+}
+
+// T22: annual netting refunds within the year, carry dies with the horizon.
+// 100k lump, 0% return, 2% cash distribution, 2 years: year 1 taxes the 2,000
+// dividend (540, never recovered — its loss counterpart is only realised at
+// the final sale a year later, and what the netting there cannot absorb dies
+// with the horizon). Year 2: dividend 1,989.20 taxed 537.08, then the final
+// sale realises a 3,989.20 loss -> year-2 income nets to -2,000, the 537.08
+// is refunded, and the -2,000 carry expires unused.
+{
+  const R = simulate(P({ gross: 0, taxDiv: 0.02, horizon: 2 }));
+  check('T22 only the prior-year dividend tax sticks', R.B_tax, 540, 0.01);
+  check('T22 net proceeds', R.B_after, 99460, 0.01);
+}
+
+// T23: married mode holds two ASKs, so every ASK trade is two half-size orders
+// and a binding minimum commission is paid twice. 12 x 1,000 kr buys and one
+// final sale at a 25 kr minimum: single 12x25+25, married 12x50+50. The
+// (pooled) taxable account is unaffected.
+{
+  const o = { initial: 0, monthly: 1000, horizon: 1, gross: 0, askFeePct: 0, askFeeMin: 25, msAsk: false };
+  const R1 = simulate(P(o));
+  const R2 = simulate(P(Object.assign({}, o, { married: true })));
+  check('T23 single pays one minimum per trade', R1.A_after, 12000 - 12 * 25 - 25);
+  check('T23 married pays two minimums per trade', R2.A_after, 12000 - 12 * 50 - 50);
+  check('T23 depot fees unchanged by married', R2.B_after, R1.B_after);
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');

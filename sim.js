@@ -19,30 +19,63 @@
     return lowPart*low + (gain-lowPart)*high;
   }
 
+  // In married mode each spouse holds their own ASK, so every ASK trade is
+  // really two half-size orders and a binding minimum commission is paid twice:
+  // 2*max(pct*x/2, min) = max(pct*x, 2*min).
+  function askFee(x, P){ return Math.max(P.askFeePct*x, P.askFeeMin*(P.married?2:1)); }
+
+  // One bucket's share income for one tax year. The assessment is annual, so
+  // dividends and realised gains/losses net against each other (and against the
+  // loss carryforward) regardless of order within the year — a loss realised in
+  // December refunds tax already charged on the spring dividends. `base` is
+  // band consumed by share income outside the model (P.threshUsed); `carry` is
+  // the carried-forward loss, which only ever meets share income here
+  // (kildeartsbegrænset, ABL § 13 A).
+  function newLedger(thr, base, carry){ return {thr, base, carry, income:0, tax:0}; }
+  // the tax a signed income item `d` would add (negative = refund), unbooked
+  function taxOn(L, d, P){
+    return bracketTax(L.income+d-L.carry, L.thr, L.base, P.taxLow, P.taxHigh)-L.tax;
+  }
+  // book a signed income item and return its tax delta
+  function settle(L, d, P){
+    const t=taxOn(L, d, P);
+    L.income+=d; L.tax+=t;
+    return t;
+  }
+  // the carry a fresh year would start with: consumed carry is spent, the
+  // year's unusable negative income is added (does not mutate L)
+  function closeYear(L){
+    return L.carry - Math.min(Math.max(0,L.income), L.carry) + Math.max(0,-L.income);
+  }
+
   // sell enough of an average-cost position that the seller nets `target` after
   // realisation tax and commission (grossed up; capped at the position's value).
   // The sale commission reduces the disposal sum before the gain is taxed, as
-  // in the actual assessment; rg is that post-fee taxable gain.
+  // in the actual assessment; rg is that post-fee taxable amount — signed, so a
+  // sale below basis realises a loss (tax against L can then be a refund).
+  // Prices against the year ledger L without booking; the caller settles rg.
   // Fixed-point iteration — the tax+fee fraction is well below 1, so it contracts.
-  function sellForNet(a, target, thr, used, P){
-    const gainFrac = a.v>0 ? Math.max(0, a.v-a.basis)/a.v : 0;
+  function sellForNet(a, target, L, P){
+    const gainFrac = a.v>0 ? (a.v-a.basis)/a.v : 0;
     let gross=target;
     for(let i=0;i<8;i++){
       const fee=Math.max(P.feePct*gross, P.feeMin);
-      const tax=bracketTax(gross*gainFrac-fee, thr, used, P.taxLow, P.taxHigh);
-      gross=Math.min(a.v, target+tax+fee);
+      const tax=taxOn(L, gross*gainFrac-fee, P);
+      gross=Math.min(a.v, Math.max(0, target+tax+fee));
     }
     const fee=Math.max(P.feePct*gross, P.feeMin);
-    const rg=Math.max(0, gross*gainFrac-fee);
-    const tax=bracketTax(rg, thr, used, P.taxLow, P.taxHigh);
+    const rg=gross*gainFrac-fee;
+    const tax=taxOn(L, rg, P);
     return {gross, rg, tax, fee, net: gross-tax-fee};
   }
 
   // Final drawdown of a realisation position, simulated year by year: what is
   // not yet sold stays invested at gross-TER and keeps distributing, and each
-  // year's sale is taxed against that year's band. thrOf(k) = the progression
-  // threshold k years after the first sale year; usedFirst = band already
-  // consumed in the first sale year (that year's dividends/harvest/refill);
+  // year's dividends, gains and losses are netted annually against that year's
+  // band and the loss carryforward. thrOf(k) = the progression threshold k
+  // years after the first sale year; L0 = the bucket's ledger for the first
+  // sale year (the caller's year state, so a first-year loss refunds tax
+  // already charged on that year's dividends/refill) — cloned, never mutated;
   // P.threshUsed consumes band in every later year too.
   // In kink mode, targetYears gives a bucket with band slack a common window to
   // spread into (set by the slower strategy) instead of exiting early and
@@ -51,36 +84,37 @@
   // force-sold (partly at the high rate) and flagged via `forced`.
   // Returns nominal totals plus the per-year net withdrawals (wd) so the
   // caller can deflate each one by its own payout year.
-  function drawdown(value, basis, P, thrOf, usedFirst, targetYears){
+  function drawdown(value, basis, P, thrOf, L0, targetYears){
     const out={tax:0, fee:0, years:0, after:0, wd:[], forced:false};
     if(value<=1){ out.after=Math.max(0,value); return out; }
     const r=Math.max(-0.99, P.gross-P.taxTer);
     const MAXY=30;
     const N=P.drawMode==='kink' ? (targetYears||MAXY) : Math.min(100, Math.max(1, Math.round(P.liqYears)));
     let v=value, b=basis;
+    let L=Object.assign({}, L0, {thr:thrOf(0)});
     for(let k=0; k<100; k++){
-      let used = k===0 ? usedFirst : P.threshUsed;
       if(k>0){
+        L=newLedger(thrOf(k), P.threshUsed, closeYear(L));
         // distributions accrue to the holdings at the start of the year
         const divBase=v;
         v*=(1+r);
         const div=P.taxDiv*divBase;
         if(div>0){
-          const dt=bracketTax(div, thrOf(k), used, P.taxLow, P.taxHigh);
-          used+=div;
+          const dt=settle(L, div, P);
           if(P.divMode==='tech'){ b+=div; b-=dt*(b/v); v-=dt; }
           else { v-=dt; b+=div-dt; }
           out.tax+=dt;
         }
       }
-      const gain=Math.max(0, v-b);
+      const gain=v-b;
       let sell;
       if(P.drawMode==='kink'){
-        // sell just enough gain to fill the year's remaining low band (the sale
-        // fee shaves the taxable gain, so the fill runs a commission short —
+        // sell just enough gain to fill the year's remaining low band — carried
+        // losses and negative income so far absorb tax-free on top of it (the
+        // sale fee shaves the taxable gain, so the fill runs a commission short —
         // second-order); a bucket given a common window spreads evenly into it
         // instead; the final window year force-sells whatever the band hasn't absorbed
-        const band=Math.max(0, thrOf(k)-used);
+        const band=Math.max(0, (L.thr-L.base)-(L.income-L.carry));
         if(k>=N-1){ sell=v; if(gain>band) out.forced=true; }
         else {
           sell = gain<=band ? v : Math.min(v, band*v/gain);
@@ -92,18 +126,18 @@
       let net=0;
       if(sell>0.01){
         const fee=Math.max(P.feePct*sell, P.feeMin);
-        const rg=Math.max(0, sell*gain/v-fee);   // selling costs reduce the disposal sum
-        const tax=bracketTax(rg, thrOf(k), used, P.taxLow, P.taxHigh);
+        const rg=sell*gain/v-fee;      // signed: selling below basis realises a loss
+        const tax=settle(L, rg, P);    // negative = same-year refund
         net=Math.max(0, sell-tax-fee);
         b-=sell*(b/v); v-=sell;
         out.tax+=tax; out.fee+=fee; out.after+=net;
       }
       // abort = what the remainder would net, sold as a lump against the next
-      // year's fresh band (approximate; feeds the chart's wealth-along-the-way line)
+      // year's fresh band and carry (approximate; feeds the chart's wealth line)
       let abort=Math.max(0, v);
       if(v>1){
         const af=Math.max(P.feePct*v, P.feeMin);
-        abort=Math.max(0, v - bracketTax(Math.max(0,v-b)-af, thrOf(k+1), P.threshUsed, P.taxLow, P.taxHigh) - af);
+        abort=Math.max(0, v - bracketTax((v-b)-af-closeYear(L), thrOf(k+1), P.threshUsed, P.taxLow, P.taxHigh) - af);
       }
       out.wd.push({net, k, abort});
       out.years=k+1;
@@ -129,13 +163,13 @@
         v-=tax; out.tax+=tax;
       }
       const sell = k>=N-1 ? v : v/(N-k);
-      const fee=Math.max(P.askFeePct*sell, P.askFeeMin);
+      const fee=askFee(sell, P);
       const fx=Math.max(0, sell-fee)*P.askForex;
       const net=Math.max(0, sell-fee-fx);
       carry+=sell-net;   // costs paid inside the account stay deductible
       v-=sell;
       const abort = v>1
-        ? Math.max(0, (v-Math.max(P.askFeePct*v, P.askFeeMin))*(1-P.askForex))
+        ? Math.max(0, (v-askFee(v, P))*(1-P.askForex))
         : Math.max(0, v);
       out.fee+=fee; out.fx+=fx; out.after+=net; out.wd.push({net, k, abort});
       out.years=k+1;
@@ -159,31 +193,31 @@
     let thrY=thrBase;   // this year's progression threshold
 
     let ask={v:0,yStart:0,contribYr:0,carry:0,taxLast:0,taxCum:0,feeCum:0,fxCum:0};
-    let ov ={v:0,basis:0,divBase:0,usedYr:0,taxCum:0,feeCum:0};   // overflow taxable (strategy A)
-    let all={v:0,basis:0,divBase:0,taxCum:0,feeCum:0};            // all taxable (strategy B)
+    let ov ={v:0,basis:0,divBase:0,led:null,taxCum:0,feeCum:0};   // overflow taxable (strategy A)
+    let all={v:0,basis:0,divBase:0,led:null,taxCum:0,feeCum:0};   // all taxable (strategy B)
     let budget=0, firstOverflow=null, fin=null;
     const series=[];
     // the chart's curves show wealth if everything were sold within the given
     // year (one lump per bucket); P1 prices that instant exit
     const P1=Object.assign({}, P, {drawMode:'years', liqYears:1});
 
-    // realise gain up to the remaining low-rate band, then buy back (steps up basis).
-    // returns the band consumed so later events in the same year price correctly.
-    function harvest(a, used){
-      if(!P.harvest) return 0;
+    // realise gain up to the remaining low-rate band, then buy back (steps up
+    // basis). Carried losses and negative income so far absorb tax-free on top
+    // of the band, so a carry lets the harvest step up more.
+    function harvest(a, L){
+      if(!P.harvest) return;
       const gain=Math.max(0, a.v-a.basis);
-      const g=Math.min(Math.max(0, thrY-used), gain);
-      if(g<=1) return 0;
+      const g=Math.min(Math.max(0, (L.thr-L.base)-(L.income-L.carry)), gain);
+      if(g<=1) return;
       const notional=g/(gain/a.v);                  // shares sold to realise g
       const sellFee=Math.max(P.feePct*notional, P.feeMin);
-      const tg=Math.max(0, g-sellFee);              // selling costs reduce the disposal sum
-      const tax=tg*P.taxLow;                        // within the band by construction
+      const tg=g-sellFee;                           // selling costs reduce the disposal sum
+      const tax=settle(L, tg, P);                   // fills the band: low rate or carry
       const buyFee=Math.max(P.feePct*(notional-sellFee-tax), P.feeMin);
       // the buy fee is capitalised into the new acquisition cost, so the basis
       // ends exactly one buy fee above the rebought value
       a.v-=(tax+sellFee+buyFee); a.basis+=(g-sellFee-tax);
       a.taxCum+=tax; a.feeCum+=sellFee+buyFee;
-      return tg;
     }
 
     // the year's distribution/minimumsindkomst, taxed as share income and based
@@ -194,30 +228,30 @@
     // 'tech' (STIIAM): nothing is paid out — the cost basis is stepped up by the gross
     // amount, and the tax is funded by selling a sliver of the holding (the gain and
     // trading fee on that tiny sale are ignored as second-order).
-    function divEvent(a, used){
+    function divEvent(a, L){
       const div=P.taxDiv*a.divBase;
-      if(div<=0 || a.v<=0) return 0;
-      const dt=bracketTax(div,thrY,used,P.taxLow,P.taxHigh);
+      if(div<=0 || a.v<=0) return;
+      const dt=settle(L, div, P);
       if(P.divMode==='tech'){ a.basis+=div; a.basis-=dt*(a.basis/a.v); a.v-=dt; }
       else { a.v-=dt; a.basis+=div-dt; }
       a.taxCum+=dt;
-      return div;
     }
 
     // sell grossed-up from the overflow depot and deposit the net into the ASK,
     // so the deposited cash equals the intended amount; the ASK-side buy pays
     // ASK commission and FX, both implicitly deductible (deposits count gross
     // in the mark-to-market base).
-    function fundAsk(target, used){
-      const s=sellForNet(ov, Math.min(target, ov.v), thrY, used, P);
+    function fundAsk(target, L){
+      const s=sellForNet(ov, Math.min(target, ov.v), L, P);
       if(s.net<=1) return null;
+      settle(L, s.rg, P);
       ov.basis-=s.gross*(ov.basis/ov.v); ov.v-=s.gross;
       ov.taxCum+=s.tax; ov.feeCum+=s.fee;
-      const fee=Math.max(P.askFeePct*s.net, P.askFeeMin);
+      const fee=askFee(s.net, P);
       const netAsk=(s.net-fee)*(1-P.askForex);
       ask.v+=netAsk; ask.feeCum+=fee; ask.fxCum+=(s.net-fee)*P.askForex;
       budget-=s.net;
-      return {deposited:s.net, netAsk, rg:s.rg};
+      return {deposited:s.net, netAsk};
     }
 
     for(let m=0;m<months;m++){
@@ -230,7 +264,9 @@
         // which may always be re-deposited (aktiesparekontoloven § 9, stk. 2).
         budget=Math.max(0,ceiling-(ask.v+ask.taxLast))+ask.taxLast;
         ask.yStart=ask.v; ask.contribYr=0;
-        ov.usedYr=P.threshUsed;
+        // fresh share-income year; unused losses carry forward
+        ov.led=newLedger(thrY, P.threshUsed, ov.led?closeYear(ov.led):0);
+        all.led=newLedger(thrY, P.threshUsed, all.led?closeYear(all.led):0);
       }
       const contrib=P.monthly+(m===0?P.initial:0);
       let toAsk=Math.min(budget,contrib); budget-=toAsk;
@@ -244,7 +280,7 @@
       // assessment), so basis counts the gross amount while value receives net.
       // ASK deposits also count gross in the mark-to-market base, which makes both
       // the buy fee and the FX cost implicitly deductible there.
-      const buyFeeAsk=(!P.msAsk && toAsk>0) ? Math.max(P.askFeePct*toAsk, P.askFeeMin) : 0;
+      const buyFeeAsk=(!P.msAsk && toAsk>0) ? askFee(toAsk, P) : 0;
       ask.v+=(toAsk-buyFeeAsk)*(1-P.askForex); ask.fxCum+=(toAsk-buyFeeAsk)*P.askForex;
       ask.contribYr+=toAsk; ask.feeCum+=buyFeeAsk;
 
@@ -259,8 +295,8 @@
         // overflow depot right away rather than sitting taxable for a year.
         const target=Math.max(0, budget-11*P.monthly);
         if(P.redeposit && target>1 && ov.v>1){
-          const f=fundAsk(target, ov.usedYr);
-          if(f){ ask.contribYr+=f.deposited; ov.usedYr+=f.rg; }
+          const f=fundAsk(target, ov.led);
+          if(f) ask.contribYr+=f.deposited;
         }
         // dividend entitlement snapshot (after the January contribution/refill)
         ov.divBase=ov.v; all.divBase=all.v;
@@ -270,34 +306,33 @@
 
       if(mi===11){
         const lastYear = (y===P.horizon-1);
+        // strategy A overflow: dividend -> December catch-all refill for
+        // allowance the January refill and the year's contributions didn't
+        // cover (e.g. the depot ran dry in January); deposited before year-end,
+        // so it counts in this year's § 13 base and its buy costs reduce the gain
+        divEvent(ov, ov.led);
+        const shortfall=Math.max(0, budget);
+        if(P.redeposit && shortfall>1 && ov.v>1){
+          const f=fundAsk(shortfall, ov.led);
+          if(f) ask.contribYr+=f.deposited;
+        }
+
         // ASK mark-to-market tax (withdrawn from the account)
         const gain=ask.v-ask.yStart-ask.contribYr;
         let tg=gain-ask.carry, lagerTax=0;
         if(tg>0){ lagerTax=tg*P.askTax; ask.carry=0; } else { ask.carry=-tg; }
         ask.v-=lagerTax; ask.taxCum+=lagerTax; ask.taxLast=lagerTax;
 
-        // strategy A overflow: dividend -> December catch-all refill -> harvest
-        let usedA=ov.usedYr;
-        usedA+=divEvent(ov, usedA);
-        // catch-all for allowance the January refill and the year's contributions
-        // didn't cover (e.g. the depot ran dry in January); deposited after this
-        // year's taxation, so its costs are carried as a deductible loss instead
-        const shortfall=Math.max(0, budget);
-        if(P.redeposit && shortfall>1 && ov.v>1){
-          const f=fundAsk(shortfall, usedA);
-          if(f){ ask.carry+=f.deposited-f.netAsk; usedA+=f.rg; }
-        }
-        if(!lastYear) usedA+=harvest(ov, usedA);   // harvesting in the sale year only adds fees
+        if(!lastYear) harvest(ov, ov.led);   // harvesting in the sale year only adds fees
 
         // strategy B: dividend -> harvest
-        let usedB=P.threshUsed;
-        usedB+=divEvent(all, usedB);
-        if(!lastYear) usedB+=harvest(all, usedB);
+        divEvent(all, all.led);
+        if(!lastYear) harvest(all, all.led);
 
         // chart point: after-tax wealth if everything were sold this year
         const thrOf=k=>thrAt(y+k);
-        const dOv1=drawdown(ov.v, ov.basis, P1, thrOf, usedA);
-        const dAll1=drawdown(all.v, all.basis, P1, thrOf, usedB);
+        const dOv1=drawdown(ov.v, ov.basis, P1, thrOf, ov.led);
+        const dAll1=drawdown(all.v, all.basis, P1, thrOf, all.led);
         const dAsk1=askDrawdown(ask.v, ask.carry, P, 1);
         const deflY=Math.pow(1+P.infl, y+1);
         series.push({year:y+1,
@@ -311,13 +346,13 @@
           // that needs the longest band-limited exit sets the common window,
           // buckets with slack spread evenly into it, and the ASK is withdrawn
           // in parallel over the same years.
-          let dOv=drawdown(ov.v, ov.basis, P, thrOf, usedA);
-          let dAll=drawdown(all.v, all.basis, P, thrOf, usedB);
+          let dOv=drawdown(ov.v, ov.basis, P, thrOf, ov.led);
+          let dAll=drawdown(all.v, all.basis, P, thrOf, all.led);
           let NA=Math.min(100, Math.max(1,Math.round(P.liqYears)));
           if(P.drawMode==='kink'){
             NA=Math.max(1, dOv.years, dAll.years);
-            if(dOv.years && dOv.years<NA) dOv=drawdown(ov.v, ov.basis, P, thrOf, usedA, NA);
-            if(dAll.years && dAll.years<NA) dAll=drawdown(all.v, all.basis, P, thrOf, usedB, NA);
+            if(dOv.years && dOv.years<NA) dOv=drawdown(ov.v, ov.basis, P, thrOf, ov.led, NA);
+            if(dAll.years && dAll.years<NA) dAll=drawdown(all.v, all.basis, P, thrOf, all.led, NA);
           }
           const dAsk=askDrawdown(ask.v, ask.carry, P, NA);
           // real mode deflates each payout by its own year
