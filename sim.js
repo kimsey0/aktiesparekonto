@@ -95,8 +95,7 @@
         b-=sell*(b/v); v-=sell;
         out.tax+=tax; out.fee+=fee; out.after+=net;
       }
-      // rem = market value still invested after this year's sale (for the chart)
-      out.wd.push({net, k, rem: Math.max(0, v)});
+      out.wd.push({net, k});
       out.years=k+1;
       if(v<=1) break;
     }
@@ -125,7 +124,7 @@
       const net=Math.max(0, sell-fee-fx);
       carry+=sell-net;   // costs paid inside the account stay deductible
       v-=sell;
-      out.fee+=fee; out.fx+=fx; out.after+=net; out.wd.push({net, k, rem: Math.max(0, v)});
+      out.fee+=fee; out.fx+=fx; out.after+=net; out.wd.push({net, k});
       out.years=k+1;
     }
     return out;
@@ -302,9 +301,11 @@
     const contributed=P.initial+P.monthly*months;
     const last=series[series.length-1];
     // the payout path of the final sale, year by year, for the chart's
-    // drawdown wedge: cumulative net cash received vs market value still
-    // invested (nominal and deflated by each year's own inflation factor)
-    const wdAt=(d,k)=>d.wd[k]||{net:0,rem:0};
+    // drawdown wedge: cumulative net cash received, and what is still to come
+    // (the remaining future payouts, so cash+outstanding always equals the
+    // final result — the wedge joins the main curve without a jump). Real
+    // amounts deflate each payout by its own year.
+    const wdAt=(d,k)=>d.wd[k]||{net:0};
     const dLen=Math.max(last.dAsk.wd.length, last.dOv.wd.length, last.dAll.wd.length);
     const deflD=k=>Math.pow(1+P.infl, P.horizon+k);
     const drawSeries=[];
@@ -313,9 +314,9 @@
       cA+=a1.net+a2.net; cB+=b.net;
       cAr+=(a1.net+a2.net)/deflD(k); cBr+=b.net/deflD(k);
       drawSeries.push({k,
-        cashA:cA, remA:a1.rem+a2.rem, cashB:cB, remB:b.rem,
-        cashAreal:cAr, remAreal:(a1.rem+a2.rem)/deflD(k),
-        cashBreal:cBr, remBreal:b.rem/deflD(k)});
+        cashA:cA, outA:last.A-cA, cashB:cB, outB:last.B-cB,
+        cashAreal:cAr, outAreal:last.Areal-cAr,
+        cashBreal:cBr, outBreal:last.Breal-cBr});
     }
     return {
       series, firstOverflow, contributed, drawSeries,

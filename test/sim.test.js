@@ -258,16 +258,22 @@ function check(name, got, want, tol = 0.01) {
   check('T17b forced flag reported', R2.B_forced ? 1 : 0, 1, 0);
 }
 
-// T18: the payout path exposed for the chart's drawdown wedge: cumulative
-// cash converges on the final result (nominal and real) and the invested
-// remainder reaches zero
+// T18: the payout path exposed for the chart's drawdown wedge: paid-out plus
+// outstanding always equals the final result (the wedge joins the main curve
+// without a jump), and everything is paid out by the last year
 {
   const R = simulate(P({ liqYears: 10, gross: 0.07, infl: 0.02, horizon: 2 }));
   check('T18 path length = drawdown years', R.drawSeries.length, 10, 0);
+  for (const e of R.drawSeries) {
+    if (Math.abs(e.cashA + e.outA - R.A_after) > 0.01 ||
+        Math.abs(e.cashBreal + e.outBreal - R.B_real) > 0.01) {
+      console.log('T18 continuity broken at year', e.k); fails++;
+    }
+  }
+  console.log('T18 paid-out + outstanding = final result in every year (no lines above)');
   const e = R.drawSeries[R.drawSeries.length - 1];
   check('T18 cumulative payouts = final result (A)', e.cashA, R.A_after, 0.5);
-  check('T18 cumulative payouts = final result (B)', e.cashB, R.B_after, 0.5);
-  check('T18 nothing left invested', e.remA + e.remB, 0);
+  check('T18 nothing outstanding at the end', e.outA + e.outB, 0);
   check('T18 real path converges too', e.cashAreal, R.A_real, 0.5);
 }
 

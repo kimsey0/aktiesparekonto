@@ -412,7 +412,7 @@
           <span class="lg"><span class="ln" style="border-color:var(--tax)"></span> Kun frit depot</span>
           <span class="lg"><span class="bd band" style="opacity:1;background:var(--gap)"></span> ASK-fordel</span>
           <span class="lg" id="lg_cash" style="display:none"><span class="ln" style="border-color:var(--ink)"></span> udbetalt (akk.)</span>
-          <span class="lg" id="lg_rem" style="display:none"><span class="ln" style="border-color:var(--ink); border-top-style:dashed; opacity:.6"></span> + endnu investeret</span>
+          <span class="lg" id="lg_rem" style="display:none"><span class="ln" style="border-color:var(--ink); border-top-style:dashed; opacity:.6"></span> + endnu til gode</span>
         </div>
         <div class="seg" role="group" aria-label="Vis i nominelle eller reale kroner">
           <button id="seg_nom" aria-pressed="true">Nominelt</button>
@@ -423,7 +423,7 @@
         <svg class="chart" id="chart" viewBox="0 0 1040 460" role="img" aria-label="Udbetalinger efter skat over tid: aktiesparekonto-strategi vs. frit depot, inkl. udtrækningsforløbet ved salg over flere år"></svg>
         <div class="tip" id="tip"></div>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>samlede udbetalinger efter skat, hvis du starter salget i det givne år</strong> — den latente realisationsskat er altså trukket fra på hvert punkt. Sælges der over flere år, fortsætter grafen til højre for den stiplede lodrette linje ind i selve udtrækningen: de optrukne kurver er akkumulerede nettoudbetalinger, og båndet ovenpå (stiplet overkant) er den endnu investerede beholdning til markedsværdi — for depotet altså før den latente skat. I real-visning deflateres hvert beløb med sit eget år.</p>
+      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>samlede udbetalinger efter skat, hvis du starter salget i det givne år</strong> — den latente realisationsskat er altså trukket fra på hvert punkt. Sælges der over flere år, fortsætter grafen til højre for den stiplede lodrette linje ind i selve udtrækningen: de optrukne kurver er akkumulerede nettoudbetalinger, og båndet op til den vandrette, stiplede overkant er det, du endnu har til gode. Overkanten er netop slutresultatet, så kurven viser, hvornår pengene reelt er i hånden. I real-visning deflateres hvert beløb med sit eget år.</p>
     </div>
   </div>
 
@@ -564,13 +564,15 @@
     const valB = i => real ? s[i].Breal : s[i].B;
     const valAsk = i => real ? s[i].askReal : s[i].ask;
     // the final sale's payout path (drawn when it spans more than one year):
-    // cumulative net payouts, and on top of them what is still invested
+    // cumulative net payouts, and on top of them what is still to come — the
+    // two always sum to the final result, so the wedge continues the main
+    // curve without a jump
     const ds=R.drawSeries, dn=ds.length>1 ? ds.length : 0;
     const hz=s[n-1].year;
     const dCashA = k => real ? ds[k].cashAreal : ds[k].cashA;
     const dCashB = k => real ? ds[k].cashBreal : ds[k].cashB;
-    const dTopA = k => dCashA(k)+(real ? ds[k].remAreal : ds[k].remA);
-    const dTopB = k => dCashB(k)+(real ? ds[k].remBreal : ds[k].remB);
+    const dTopA = k => dCashA(k)+(real ? ds[k].outAreal : ds[k].outA);
+    const dTopB = k => dCashB(k)+(real ? ds[k].outBreal : ds[k].outB);
     const maxX=hz+(dn?dn-1:0);
     let maxV=0;
     for(let i=0;i<n;i++){ maxV=Math.max(maxV, valA(i), valB(i)); }
@@ -666,9 +668,9 @@
       tip.innerHTML =
         `<div class="ty">Udtrækningsår ${dk+1}${cs.real?' · realt':''}</div>`+
         `<div class="tr"><span class="k"><span class="sw" style="background:var(--ask)"></span>ASK udbetalt</span><span>${kr(cA)}</span></div>`+
-        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;endnu investeret</span><span>${kr(rA)}</span></div>`+
+        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;endnu til gode</span><span>${kr(rA)}</span></div>`+
         `<div class="tr tg"><span class="k"><span class="sw" style="background:var(--tax)"></span>Depot udbetalt</span><span>${kr(cB)}</span></div>`+
-        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;endnu investeret</span><span>${kr(rB)}</span></div>`;
+        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;endnu til gode</span><span>${kr(rB)}</span></div>`;
       tip.style.left=(xx/cs.W*rect.width)+'px';
       tip.style.top=(Math.min(cs.Y(cs.dTopA(dk)), cs.Y(cs.dTopB(dk)))/cs.H*rect.height)+'px';
       tip.style.opacity=1;
