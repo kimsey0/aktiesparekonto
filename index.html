@@ -423,7 +423,7 @@
         <svg class="chart" id="chart" viewBox="0 0 1040 460" role="img" aria-label="Udbetalinger efter skat over tid: aktiesparekonto-strategi vs. frit depot, inkl. udtrækningsforløbet ved salg over flere år"></svg>
         <div class="tip" id="tip"></div>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>samlede udbetalinger efter skat, hvis du starter salget i det givne år</strong> — den latente realisationsskat er altså trukket fra på hvert punkt. Sælges der over flere år, fortsætter grafen til højre for den stiplede lodrette linje ind i selve udtrækningen: de optrukne kurver er akkumulerede nettoudbetalinger, og båndet op til den vandrette, stiplede overkant er det, du endnu har til gode. Overkanten er netop slutresultatet, så kurven viser, hvornår pengene reelt er i hånden. I real-visning deflateres hvert beløb med sit eget år.</p>
+      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>samlede udbetalinger efter skat, hvis du starter salget i det givne år</strong> — den latente realisationsskat er altså trukket fra på hvert punkt. <span id="fn_wedge" style="display:none">Grafen fortsætter til højre for den stiplede lodrette linje ind i selve udtrækningen: de optrukne kurver er akkumulerede nettoudbetalinger, og båndet op til den vandrette, stiplede overkant er det, du endnu har til gode. Overkanten er netop slutresultatet, så kurven viser, hvornår pengene reelt er i hånden. </span>I real-visning deflateres hvert beløb med sit eget år.</p>
     </div>
   </div>
 
@@ -627,6 +627,7 @@
     }
     $('lg_cash').style.display = dn ? '' : 'none';
     $('lg_rem').style.display = dn ? '' : 'none';
+    $('fn_wedge').style.display = dn ? '' : 'none';
 
     svg.innerHTML =
       `<g class="grid">${grid}</g>`+

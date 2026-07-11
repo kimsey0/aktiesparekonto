@@ -84,8 +84,10 @@ try {
   el('liq').value = '10'; el('liq').fire('input');
   check('drawdown wedge drawn for multi-year sale', /dwCashA/.test(el('chart').innerHTML));
   check('wedge legend shown', el('lg_cash').style.display === '');
+  check('wedge footnote shown', el('fn_wedge').style.display === '');
   el('reset').fire('click');
   check('wedge legend hidden again', el('lg_cash').style.display === 'none');
+  check('wedge footnote hidden again', el('fn_wedge').style.display === 'none');
 
   chipEls.find(c => c.dataset.fund === 'Saxo').fire('click');
   check('Saxo chip sets both fee schedules', el('feeMin').value === '10' && el('askFeeMin').value === '22.4',
