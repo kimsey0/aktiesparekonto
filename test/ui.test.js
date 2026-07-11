@@ -65,6 +65,7 @@ const num = t => parseFloat(String(t).replace(/\./g, '').replace(',', '.'));
 check('hero A', /kr/.test(el('A_big').textContent), el('A_big').textContent);
 check('hero B', /kr/.test(el('B_big').textContent), el('B_big').textContent);
 check('chart drawn', /path class="lineA"/.test(el('chart').innerHTML));
+check('no drawdown wedge at 1-year sale', !/dwCashA/.test(el('chart').innerHTML));
 check('table rows', (el('bdbody').innerHTML.match(/<tr/g) || []).length === 10);
 const A0 = num(el('A_big').textContent);
 
@@ -79,6 +80,12 @@ try {
   el('askTer').value = '250'; el('askTer').fire('input');
   check('absurd TER clamped, no NaN', isFinite(num(el('A_big').textContent)), el('A_big').textContent);
   el('reset').fire('click');
+
+  el('liq').value = '10'; el('liq').fire('input');
+  check('drawdown wedge drawn for multi-year sale', /dwCashA/.test(el('chart').innerHTML));
+  check('wedge legend shown', el('lg_cash').style.display === '');
+  el('reset').fire('click');
+  check('wedge legend hidden again', el('lg_cash').style.display === 'none');
 
   chipEls.find(c => c.dataset.fund === 'Saxo').fire('click');
   check('Saxo chip sets both fee schedules', el('feeMin').value === '10' && el('askFeeMin').value === '22.4',

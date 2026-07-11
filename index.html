@@ -149,6 +149,14 @@
   .band{fill:var(--gap); opacity:.10}
   .loft{stroke:var(--ink); stroke-width:1; stroke-dasharray:2 3; opacity:.5}
   .loft-t{font-family:var(--mono); font-size:10px; fill:var(--muted)}
+  /* drawdown wedge: cumulative payouts (solid) + still-invested value on top (dashed) */
+  .dwCashA{fill:none; stroke:var(--ask); stroke-width:2.2}
+  .dwCashB{fill:none; stroke:var(--tax); stroke-width:2.2}
+  .dwTopA{fill:none; stroke:var(--ask); stroke-width:1.2; stroke-dasharray:4 3; opacity:.6}
+  .dwTopB{fill:none; stroke:var(--tax); stroke-width:1.2; stroke-dasharray:4 3; opacity:.6}
+  .dwBandA{fill:var(--ask); opacity:.08}
+  .dwBandB{fill:var(--tax); opacity:.08}
+  .dwDiv{stroke:var(--ink); stroke-width:1; stroke-dasharray:5 4; opacity:.4}
   .guide{stroke:var(--ink); stroke-width:1; opacity:.35}
   .dotA{fill:var(--ask)} .dotB{fill:var(--tax)}
   .tip{
@@ -202,7 +210,7 @@
     <div>
       <div class="eyebrow">Skatteeffektivitet · frie midler · 2026-satser</div>
       <h1>Aktiesparekonto vs. frit depot</h1>
-      <p class="sub">De 17 % på aktiesparekontoen vs. 27/42 % i et frit depot er kun overskriften. Når man lægger højere fondsomkostninger, valutaveksling og lagerbeskatningens manglende skatteudskydelse oveni, bliver forskellen mindre — og afhænger stærkt af din tidshorisont og hvordan du trækker pengene ud til sidst.</p>
+      <p class="sub">De 17 % på aktiesparekontoen vs. 27/42 % i et frit depot er kun overskriften. Når man lægger højere fondsomkostninger, valutaveksling, kurtage på ASK-køb (månedsopsparingen kan typisk ikke kobles på kontoen) og lagerbeskatningens manglende skatteudskydelse oveni, bliver forskellen mindre — og afhænger stærkt af din tidshorisont og hvordan du trækker pengene ud til sidst.</p>
     </div>
     <span class="tag">17 % lager vs. 27/42 % realisation</span>
   </header>
@@ -403,6 +411,8 @@
           <span class="lg"><span class="ln" style="border-color:var(--ask); border-top-style:dashed; opacity:.65"></span> heraf på ASK-kontoen</span>
           <span class="lg"><span class="ln" style="border-color:var(--tax)"></span> Kun frit depot</span>
           <span class="lg"><span class="bd band" style="opacity:1;background:var(--gap)"></span> ASK-fordel</span>
+          <span class="lg" id="lg_cash" style="display:none"><span class="ln" style="border-color:var(--ink)"></span> udbetalt (akk.)</span>
+          <span class="lg" id="lg_rem" style="display:none"><span class="ln" style="border-color:var(--ink); border-top-style:dashed; opacity:.6"></span> + endnu investeret</span>
         </div>
         <div class="seg" role="group" aria-label="Vis i nominelle eller reale kroner">
           <button id="seg_nom" aria-pressed="true">Nominelt</button>
@@ -410,10 +420,10 @@
         </div>
       </div>
       <div class="chartbox" id="chartbox">
-        <svg class="chart" id="chart" viewBox="0 0 1040 460" role="img" aria-label="Formue efter skat over tid: aktiesparekonto-strategi vs. frit depot"></svg>
+        <svg class="chart" id="chart" viewBox="0 0 1040 460" role="img" aria-label="Udbetalinger efter skat over tid: aktiesparekonto-strategi vs. frit depot, inkl. udtrækningsforløbet ved salg over flere år"></svg>
         <div class="tip" id="tip"></div>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>samlede udbetalinger efter skat, hvis du starter salget i det givne år</strong> — den latente realisationsskat er altså trukket fra på hvert punkt. Ved salg over flere år forbliver resten investeret (og beskattet) undervejs, og i real-visning deflateres hver udbetaling med sit eget udbetalingsår.</p>
+      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>samlede udbetalinger efter skat, hvis du starter salget i det givne år</strong> — den latente realisationsskat er altså trukket fra på hvert punkt. Sælges der over flere år, fortsætter grafen til højre for den stiplede lodrette linje ind i selve udtrækningen: de optrukne kurver er akkumulerede nettoudbetalinger, og båndet ovenpå (stiplet overkant) er den endnu investerede beholdning til markedsværdi — for depotet altså før den latente skat. I real-visning deflateres hvert beløb med sit eget år.</p>
     </div>
   </div>
 
@@ -549,13 +559,24 @@
     const W=1040,H=460, pl=66, pr=18, pt=22, pb=34;
     const iw=W-pl-pr, ih=H-pt-pb;
     const s=R.series, n=s.length;
-    // real mode: every withdrawal is already deflated by its own payout year in sim.js
+    // real mode: every amount is already deflated by its own payout year in sim.js
     const valA = i => real ? s[i].Areal : s[i].A;
     const valB = i => real ? s[i].Breal : s[i].B;
     const valAsk = i => real ? s[i].askReal : s[i].ask;
-    let maxV=0; for(let i=0;i<n;i++){ maxV=Math.max(maxV, valA(i), valB(i)); }
+    // the final sale's payout path (drawn when it spans more than one year):
+    // cumulative net payouts, and on top of them what is still invested
+    const ds=R.drawSeries, dn=ds.length>1 ? ds.length : 0;
+    const hz=s[n-1].year;
+    const dCashA = k => real ? ds[k].cashAreal : ds[k].cashA;
+    const dCashB = k => real ? ds[k].cashBreal : ds[k].cashB;
+    const dTopA = k => dCashA(k)+(real ? ds[k].remAreal : ds[k].remA);
+    const dTopB = k => dCashB(k)+(real ? ds[k].remBreal : ds[k].remB);
+    const maxX=hz+(dn?dn-1:0);
+    let maxV=0;
+    for(let i=0;i<n;i++){ maxV=Math.max(maxV, valA(i), valB(i)); }
+    for(let k=0;k<dn;k++){ maxV=Math.max(maxV, dTopA(k), dTopB(k)); }
     const top=niceTop(maxV*1.02);
-    const X = yr => pl + (n<=1?0:(yr-1)/(s[n-1].year-1||1))*iw;
+    const X = yr => pl + (yr-1)/((maxX-1)||1)*iw;
     const Y = v => pt + ih - (v/top)*ih;
 
     const pathFrom = fn => { let d=''; for(let i=0;i<n;i++){ d += (i?'L':'M')+X(s[i].year).toFixed(1)+' '+Y(fn(i)).toFixed(1); } return d; };
@@ -572,8 +593,8 @@
       grid+=`<line x1="${pl}" y1="${yy.toFixed(1)}" x2="${pl+iw}" y2="${yy.toFixed(1)}"/>`;
       ylab+=`<text x="${pl-10}" y="${(yy+4).toFixed(1)}" text-anchor="end">${fmtAxis(v)}</text>`;
     }
-    // x labels
-    const maxYr=s[n-1].year;
+    // x labels (the axis continues into the drawdown years)
+    const maxYr=maxX;
     let step=1; if(maxYr>30)step=5; else if(maxYr>15)step=5; else if(maxYr>8)step=2;
     let xlab='';
     for(let yr=step; yr<=maxYr; yr+=step){ xlab+=`<text x="${X(yr).toFixed(1)}" y="${H-12}" text-anchor="middle">${yr}</text>`; }
@@ -587,19 +608,38 @@
            `<text class="loft-t" x="${(lx+5).toFixed(1)}" y="${pt+12}">ASK fyldt op</text>`;
     }
 
+    // drawdown wedge to the right of the divider at the horizon
+    let dw='';
+    if(dn){
+      const dx=k=>X(hz+k);
+      const line=fn=>{ let d=''; for(let k=0;k<dn;k++){ d+=(k?'L':'M')+dx(k).toFixed(1)+' '+Y(fn(k)).toFixed(1); } return d; };
+      const wedge=(loFn,hiFn)=>{ let d='M'; for(let k=0;k<dn;k++){ d+=(k?'L':'')+dx(k).toFixed(1)+' '+Y(loFn(k)).toFixed(1)+' '; } for(let k=dn-1;k>=0;k--){ d+='L'+dx(k).toFixed(1)+' '+Y(hiFn(k)).toFixed(1)+' '; } return d+'Z'; };
+      dw=`<line class="dwDiv" x1="${X(hz).toFixed(1)}" y1="${pt}" x2="${X(hz).toFixed(1)}" y2="${pt+ih}"/>`+
+         `<text class="loft-t" x="${(X(hz)+5).toFixed(1)}" y="${pt+ih-8}">udtrækning →</text>`+
+         `<path class="dwBandB" d="${wedge(dCashB,dTopB)}"/>`+
+         `<path class="dwBandA" d="${wedge(dCashA,dTopA)}"/>`+
+         `<path class="dwTopB" d="${line(dTopB)}"/>`+
+         `<path class="dwTopA" d="${line(dTopA)}"/>`+
+         `<path class="dwCashB" d="${line(dCashB)}"/>`+
+         `<path class="dwCashA" d="${line(dCashA)}"/>`;
+    }
+    $('lg_cash').style.display = dn ? '' : 'none';
+    $('lg_rem').style.display = dn ? '' : 'none';
+
     svg.innerHTML =
       `<g class="grid">${grid}</g>`+
       `<path class="band" d="${band}"/>`+
       loft+
+      dw+
       `<path class="lineB" d="${pathFrom(valB)}"/>`+
       `<path class="lineAsk" d="${pathFrom(valAsk)}"/>`+
       `<path class="lineA" d="${pathFrom(valA)}"/>`+
-      `<circle class="dotB" cx="${X(maxYr).toFixed(1)}" cy="${Y(valB(n-1)).toFixed(1)}" r="3.5"/>`+
-      `<circle class="dotA" cx="${X(maxYr).toFixed(1)}" cy="${Y(valA(n-1)).toFixed(1)}" r="3.5"/>`+
+      `<circle class="dotB" cx="${X(hz).toFixed(1)}" cy="${Y(valB(n-1)).toFixed(1)}" r="3.5"/>`+
+      `<circle class="dotA" cx="${X(hz).toFixed(1)}" cy="${Y(valA(n-1)).toFixed(1)}" r="3.5"/>`+
       `<g class="axis">${ylab}${xlab}</g>`+
       `<g id="hover"></g>`;
 
-    chartState={s,n,X,Y,pl,pr,pt,pb,iw,ih,W,H,valA,valB,real};
+    chartState={s,n,X,Y,pl,pr,pt,pb,iw,ih,W,H,valA,valB,real,ds,dn,hz,dCashA,dCashB,dTopA,dTopB};
   }
 
   function onHover(evt){
@@ -608,9 +648,32 @@
     const rect=svg.getBoundingClientRect();
     const cs=chartState;
     const px=(evt.clientX-rect.left)/rect.width*cs.W;
-    // nearest year index
-    let bi=0, bd=1e9;
+    // nearest point: an accumulation year, or a year inside the drawdown wedge
+    let bi=0, bd=1e9, dk=-1;
     for(let i=0;i<cs.n;i++){ const d=Math.abs(cs.X(cs.s[i].year)-px); if(d<bd){bd=d;bi=i;} }
+    for(let k=1;k<cs.dn;k++){ const d=Math.abs(cs.X(cs.hz+k)-px); if(d<bd){bd=d;dk=k;} }
+    if(dk>=0){
+      const xx=cs.X(cs.hz+dk);
+      const cA=cs.dCashA(dk), cB=cs.dCashB(dk);
+      const rA=cs.dTopA(dk)-cA, rB=cs.dTopB(dk)-cB;
+      const g=document.getElementById('hover');
+      if(g){
+        g.innerHTML=
+          `<line class="guide" x1="${xx.toFixed(1)}" y1="${cs.pt}" x2="${xx.toFixed(1)}" y2="${cs.pt+cs.ih}"/>`+
+          `<circle class="dotB" cx="${xx.toFixed(1)}" cy="${cs.Y(cB).toFixed(1)}" r="4"/>`+
+          `<circle class="dotA" cx="${xx.toFixed(1)}" cy="${cs.Y(cA).toFixed(1)}" r="4"/>`;
+      }
+      tip.innerHTML =
+        `<div class="ty">Udtrækningsår ${dk+1}${cs.real?' · realt':''}</div>`+
+        `<div class="tr"><span class="k"><span class="sw" style="background:var(--ask)"></span>ASK udbetalt</span><span>${kr(cA)}</span></div>`+
+        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;endnu investeret</span><span>${kr(rA)}</span></div>`+
+        `<div class="tr tg"><span class="k"><span class="sw" style="background:var(--tax)"></span>Depot udbetalt</span><span>${kr(cB)}</span></div>`+
+        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;endnu investeret</span><span>${kr(rB)}</span></div>`;
+      tip.style.left=(xx/cs.W*rect.width)+'px';
+      tip.style.top=(Math.min(cs.Y(cs.dTopA(dk)), cs.Y(cs.dTopB(dk)))/cs.H*rect.height)+'px';
+      tip.style.opacity=1;
+      return;
+    }
     const xx=cs.X(cs.s[bi].year), yA=cs.Y(cs.valA(bi)), yB=cs.Y(cs.valB(bi));
     const g=document.getElementById('hover');
     if(g){

@@ -258,5 +258,18 @@ function check(name, got, want, tol = 0.01) {
   check('T17b forced flag reported', R2.B_forced ? 1 : 0, 1, 0);
 }
 
+// T18: the payout path exposed for the chart's drawdown wedge: cumulative
+// cash converges on the final result (nominal and real) and the invested
+// remainder reaches zero
+{
+  const R = simulate(P({ liqYears: 10, gross: 0.07, infl: 0.02, horizon: 2 }));
+  check('T18 path length = drawdown years', R.drawSeries.length, 10, 0);
+  const e = R.drawSeries[R.drawSeries.length - 1];
+  check('T18 cumulative payouts = final result (A)', e.cashA, R.A_after, 0.5);
+  check('T18 cumulative payouts = final result (B)', e.cashB, R.B_after, 0.5);
+  check('T18 nothing left invested', e.remA + e.remB, 0);
+  check('T18 real path converges too', e.cashAreal, R.A_real, 0.5);
+}
+
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');
 process.exit(fails ? 1 : 0);

@@ -86,14 +86,17 @@
       } else {
         sell = k>=N-1 ? v : v/(N-k);
       }
+      let net=0;
       if(sell>0.01){
         const rg=sell*gain/v;
         const tax=bracketTax(rg, thrOf(k), used, P.taxLow, P.taxHigh);
         const fee=Math.max(P.feePct*sell, P.feeMin);
-        const net=Math.max(0, sell-tax-fee);
+        net=Math.max(0, sell-tax-fee);
         b-=sell*(b/v); v-=sell;
-        out.tax+=tax; out.fee+=fee; out.after+=net; out.wd.push({net, k});
+        out.tax+=tax; out.fee+=fee; out.after+=net;
       }
+      // rem = market value still invested after this year's sale (for the chart)
+      out.wd.push({net, k, rem: Math.max(0, v)});
       out.years=k+1;
       if(v<=1) break;
     }
@@ -122,7 +125,7 @@
       const net=Math.max(0, sell-fee-fx);
       carry+=sell-net;   // costs paid inside the account stay deductible
       v-=sell;
-      out.fee+=fee; out.fx+=fx; out.after+=net; out.wd.push({net, k});
+      out.fee+=fee; out.fx+=fx; out.after+=net; out.wd.push({net, k, rem: Math.max(0, v)});
       out.years=k+1;
     }
     return out;
@@ -298,8 +301,24 @@
     }
     const contributed=P.initial+P.monthly*months;
     const last=series[series.length-1];
+    // the payout path of the final sale, year by year, for the chart's
+    // drawdown wedge: cumulative net cash received vs market value still
+    // invested (nominal and deflated by each year's own inflation factor)
+    const wdAt=(d,k)=>d.wd[k]||{net:0,rem:0};
+    const dLen=Math.max(last.dAsk.wd.length, last.dOv.wd.length, last.dAll.wd.length);
+    const deflD=k=>Math.pow(1+P.infl, P.horizon+k);
+    const drawSeries=[];
+    for(let k=0,cA=0,cB=0,cAr=0,cBr=0;k<dLen;k++){
+      const a1=wdAt(last.dAsk,k), a2=wdAt(last.dOv,k), b=wdAt(last.dAll,k);
+      cA+=a1.net+a2.net; cB+=b.net;
+      cAr+=(a1.net+a2.net)/deflD(k); cBr+=b.net/deflD(k);
+      drawSeries.push({k,
+        cashA:cA, remA:a1.rem+a2.rem, cashB:cB, remB:b.rem,
+        cashAreal:cAr, remAreal:(a1.rem+a2.rem)/deflD(k),
+        cashBreal:cBr, remBreal:b.rem/deflD(k)});
+    }
     return {
-      series, firstOverflow, contributed,
+      series, firstOverflow, contributed, drawSeries,
       A_after: last.A, B_after: last.B,
       A_real: last.Areal, B_real: last.Breal,
       askFinal: last.ask, overflowFinal: last.dOv.after,
