@@ -13,6 +13,8 @@ for (const m of html.matchAll(/<input\b[^>]*>/g)) {
   attrs[id] = {
     type: (tag.match(/type="([^"]+)"/) || [])[1] || 'text',
     value: (tag.match(/value="([^"]*)"/) || [])[1] || '',
+    min: (tag.match(/min="([^"]*)"/) || [])[1] || '',
+    max: (tag.match(/max="([^"]*)"/) || [])[1] || '',
     checked: /\bchecked\b/.test(tag),
   };
 }
@@ -23,7 +25,7 @@ const chips = [...html.matchAll(/<button class="chip" data-group="([^"]+)" data-
 function makeEl(id) {
   const a = attrs[id] || {};
   return {
-    id, type: a.type, value: a.value, checked: !!a.checked, disabled: false,
+    id, type: a.type, value: a.value, min: a.min, max: a.max, checked: !!a.checked, disabled: false,
     textContent: '', innerHTML: '', style: {}, dataset: {},
     _handlers: {}, _attrs: {},
     addEventListener(t, fn) { (this._handlers[t] = this._handlers[t] || []).push(fn); },
@@ -63,13 +65,25 @@ const num = t => parseFloat(String(t).replace(/\./g, '').replace(',', '.'));
 check('hero A', /kr/.test(el('A_big').textContent), el('A_big').textContent);
 check('hero B', /kr/.test(el('B_big').textContent), el('B_big').textContent);
 check('chart drawn', /path class="lineA"/.test(el('chart').innerHTML));
-check('table rows', (el('bdbody').innerHTML.match(/<tr/g) || []).length === 9);
+check('table rows', (el('bdbody').innerHTML.match(/<tr/g) || []).length === 10);
 const A0 = num(el('A_big').textContent);
 
 try {
   el('married').checked = true; el('married').fire('change');
   check('married doubles displayed ceiling', el('ceiling_v').textContent.includes('348.400'), el('ceiling_v').textContent);
   el('married').checked = false; el('married').fire('change');
+
+  // out-of-range typed input is clamped for the calculation, never NaN in the UI
+  el('gross').value = '-50'; el('gross').fire('input');
+  check('negative return input clamped, no NaN', isFinite(num(el('A_big').textContent)), el('A_big').textContent);
+  el('askTer').value = '250'; el('askTer').fire('input');
+  check('absurd TER clamped, no NaN', isFinite(num(el('A_big').textContent)), el('A_big').textContent);
+  el('reset').fire('click');
+
+  chipEls.find(c => c.dataset.fund === 'Saxo').fire('click');
+  check('Saxo chip sets both fee schedules', el('feeMin').value === '10' && el('askFeeMin').value === '22.4',
+        el('feeMin').value + '/' + el('askFeeMin').value);
+  chipEls.find(c => c.dataset.fund === 'Nordnet').fire('click');
 
   chipEls.find(c => c.dataset.fund === 'SPVIGAKL').fire('click');
   check('SPVIGAKL chip sets distribution', el('taxDiv').value === '3.2', el('taxDiv').value);
@@ -79,10 +93,10 @@ try {
 
   el('dm_kink').fire('click');
   check('harvest disabled in up-to-threshold mode', el('harvest').disabled === true);
-  el('horizon').value = '40'; el('horizon').fire('input');
-  check('indexed threshold: no warning', !/matematisk korrekt/.test(el('drawNote').textContent));
+  check('indexed threshold: no warning at default horizon', !/tvangssælges|matematisk korrekt/.test(el('drawNote').textContent), el('drawNote').textContent);
   el('reg').value = '0'; el('reg').fire('input');
-  check('flat threshold: warning shown', /matematisk korrekt/.test(el('drawNote').textContent));
+  check('flat threshold: forced-sale warning shown', /tvangssælges/.test(el('drawNote').textContent));
+  check('flat threshold: warning names the 30-year window', /30/.test(el('drawNote').textContent));
 
   el('dm_years').fire('click');
   el('reset').fire('click');

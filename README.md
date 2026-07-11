@@ -9,10 +9,13 @@ eventually sell out.
 
 **Try it here (in Danish): [jacobbundgaard.dk/aktiesparekonto](https://jacobbundgaard.dk/aktiesparekonto)**
 
-The model simulates month by month with annual tax settlement. Every assumption
-is an editable input, and the methodology — including the deliberate
-simplifications — is documented in detail at the bottom of the page itself
-("Sådan regner modellen").
+The model simulates month by month with annual tax settlement, and the final
+drawdown year by year: whatever is not yet sold stays invested, keeps
+distributing, and is taxed along the way (the ASK is withdrawn in parallel over
+the same years), so multi-year sale strategies are compared on equal cash-flow
+timing. Every assumption is an editable input, and the methodology — including
+the deliberate simplifications — is documented in detail at the bottom of the
+page itself ("Sådan regner modellen").
 
 ## Files
 
@@ -41,8 +44,13 @@ node test/ui.test.js
 - Share income (*aktieindkomst*): 27% up to the progression threshold of
   DKK 79,400 (doubled for married couples, personskatteloven § 8 a, stk. 4),
   42% above — [skm.dk rate tables](https://skm.dk/tal-og-metode/satser).
+- The already-enacted extra uplift of the progression threshold from 2027
+  (DKK 83,100 in 2025-level, ≈ DKK 87,100 in 2026-level) is modelled as its
+  own editable parameter.
 - Both limits are adjusted annually under personskatteloven § 20; the model
   projects them forward at a shared, editable rate.
+- Trading commissions are split per market: one schedule for the Danish-listed
+  funds in the taxable account, another for the ASK's Xetra-listed ETF.
 - Fund costs are TERs (not the Danish ÅOP measure), and distribution rates are
   averages of the 2024–25 income years — see the explanations on the page.
 
