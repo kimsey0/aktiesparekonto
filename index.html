@@ -38,7 +38,7 @@
     font-family:var(--body); font-size:15px; line-height:1.5;
     -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:1180px; margin:0 auto; padding:28px 22px 80px}
+  .wrap{max-width:1240px; margin:0 auto; padding:28px 22px 80px}
   .eyebrow{
     font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
     color:var(--faint); font-weight:500;
@@ -149,11 +149,12 @@
   .band{fill:var(--gap); opacity:.10}
   .loft{stroke:var(--ink); stroke-width:1; stroke-dasharray:2 3; opacity:.5}
   .loft-t{font-family:var(--mono); font-size:10px; fill:var(--muted)}
-  /* drawdown wedge: cumulative payouts (solid) + still-invested value on top (dashed) */
-  .dwCashA{fill:none; stroke:var(--ask); stroke-width:2.2}
-  .dwCashB{fill:none; stroke:var(--tax); stroke-width:2.2}
-  .dwTopA{fill:none; stroke:var(--ask); stroke-width:1.2; stroke-dasharray:4 3; opacity:.6}
-  .dwTopB{fill:none; stroke:var(--tax); stroke-width:1.2; stroke-dasharray:4 3; opacity:.6}
+  /* drawdown wedge: the wealth line continues the main curves (solid), the
+     cumulative payouts below are dashed */
+  .dwTopA{fill:none; stroke:var(--ask); stroke-width:2.4}
+  .dwTopB{fill:none; stroke:var(--tax); stroke-width:2.4}
+  .dwCashA{fill:none; stroke:var(--ask); stroke-width:1.8; stroke-dasharray:5 4; opacity:.85}
+  .dwCashB{fill:none; stroke:var(--tax); stroke-width:1.8; stroke-dasharray:5 4; opacity:.85}
   .dwBandA{fill:var(--ask); opacity:.08}
   .dwBandB{fill:var(--tax); opacity:.08}
   .dwDiv{stroke:var(--ink); stroke-width:1; stroke-dasharray:5 4; opacity:.4}
@@ -161,7 +162,7 @@
   .dotA{fill:var(--ask)} .dotB{fill:var(--tax)}
   .tip{
     position:absolute; pointer-events:none; background:var(--ink); color:#fff; border-radius:8px;
-    padding:9px 11px; font-size:12px; min-width:160px; transform:translate(-50%,-115%);
+    padding:9px 11px; font-size:12px; min-width:160px; white-space:nowrap; transform:translate(-50%,-115%);
     opacity:0; transition:opacity .08s; box-shadow:0 8px 22px rgba(0,0,0,.18); z-index:5;
   }
   .tip .ty{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:#ffffffaa; margin-bottom:6px}
@@ -408,11 +409,10 @@
       <div class="vtop">
         <div class="legend">
           <span class="lg"><span class="ln" style="border-color:var(--ask)"></span> Maksimér ASK</span>
-          <span class="lg"><span class="ln" style="border-color:var(--ask); border-top-style:dashed; opacity:.65"></span> heraf på ASK-kontoen</span>
+          <span class="lg" id="lg_ask"><span class="ln" style="border-color:var(--ask); border-top-style:dashed; opacity:.65"></span> heraf på ASK-kontoen</span>
           <span class="lg"><span class="ln" style="border-color:var(--tax)"></span> Kun frit depot</span>
           <span class="lg"><span class="bd band" style="opacity:1;background:var(--gap)"></span> ASK-fordel</span>
-          <span class="lg" id="lg_cash" style="display:none"><span class="ln" style="border-color:var(--ink)"></span> udbetalt (akk.)</span>
-          <span class="lg" id="lg_rem" style="display:none"><span class="ln" style="border-color:var(--ink); border-top-style:dashed; opacity:.6"></span> + resten, hvis solgt nu</span>
+          <span class="lg" id="lg_cash" style="display:none"><span class="ln" style="border-color:var(--ink); border-top-style:dashed"></span> heraf udbetalt (akk.)</span>
         </div>
         <div class="seg" role="group" aria-label="Vis i nominelle eller reale kroner">
           <button id="seg_nom" aria-pressed="true">Nominelt</button>
@@ -423,7 +423,7 @@
         <svg class="chart" id="chart" viewBox="0 0 1040 460" role="img" aria-label="Udbetalinger efter skat over tid: aktiesparekonto-strategi vs. frit depot, inkl. udtrækningsforløbet ved salg over flere år"></svg>
         <div class="tip" id="tip"></div>
       </div>
-      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>formue efter skat, hvis alt blev solgt i det givne år</strong> — den latente realisationsskat er altså trukket fra på hvert punkt. <span id="fn_wedge" style="display:none">Fra dit valgte salgsår fortsætter grafen ind i selve udtrækningen: de optrukne kurver er akkumulerede nettoudbetalinger, og båndets stiplede overkant er formuen undervejs — udbetalt plus hvad resten omtrent ville indbringe, hvis den blev solgt med det samme. Overkanten stiger i takt med væksten i udtrækningsårene og ender i strategiens samlede slutresultat: tallet øverst på siden. </span>I real-visning deflateres hvert beløb med sit eget år.</p>
+      <p style="font-size:12px;color:var(--muted);margin:8px 4px 6px">Kurverne viser <strong>formue efter skat, hvis alt blev solgt i det givne år</strong> — den latente realisationsskat er altså trukket fra på hvert punkt. <span id="fn_wedge" style="display:none">Fra dit valgte salgsår fortsætter kurverne ind i selve udtrækningen som formuen undervejs — udbetalt plus hvad resten omtrent ville indbringe, hvis den blev solgt med det samme — og ender i strategiens samlede slutresultat: tallet øverst på siden. De stiplede kurver nedenunder er de akkumulerede nettoudbetalinger. </span>I real-visning deflateres hvert beløb med sit eget år.</p>
     </div>
   </div>
 
@@ -620,14 +620,16 @@
          `<text class="loft-t" x="${(X(hz)+5).toFixed(1)}" y="${pt+ih-8}">udtrækning →</text>`+
          `<path class="dwBandB" d="${wedge(dCashB,dTopB)}"/>`+
          `<path class="dwBandA" d="${wedge(dCashA,dTopA)}"/>`+
-         `<path class="dwTopB" d="${line(dTopB)}"/>`+
-         `<path class="dwTopA" d="${line(dTopA)}"/>`+
          `<path class="dwCashB" d="${line(dCashB)}"/>`+
-         `<path class="dwCashA" d="${line(dCashA)}"/>`;
+         `<path class="dwCashA" d="${line(dCashA)}"/>`+
+         `<path class="dwTopB" d="${line(dTopB)}"/>`+
+         `<path class="dwTopA" d="${line(dTopA)}"/>`;
     }
     $('lg_cash').style.display = dn ? '' : 'none';
-    $('lg_rem').style.display = dn ? '' : 'none';
     $('fn_wedge').style.display = dn ? '' : 'none';
+    // the dashed ASK-share line coincides with the A curve when nothing
+    // ever overflows the ceiling — hide it and its legend entry then
+    $('lg_ask').style.display = R.firstOverflow ? '' : 'none';
 
     svg.innerHTML =
       `<g class="grid">${grid}</g>`+
@@ -635,7 +637,7 @@
       loft+
       dw+
       `<path class="lineB" d="${pathFrom(valB)}"/>`+
-      `<path class="lineAsk" d="${pathFrom(valAsk)}"/>`+
+      (R.firstOverflow ? `<path class="lineAsk" d="${pathFrom(valAsk)}"/>` : '')+
       `<path class="lineA" d="${pathFrom(valA)}"/>`+
       `<circle class="dotB" cx="${X(hz).toFixed(1)}" cy="${Y(valB(n-1)).toFixed(1)}" r="3.5"/>`+
       `<circle class="dotA" cx="${X(hz).toFixed(1)}" cy="${Y(valA(n-1)).toFixed(1)}" r="3.5"/>`+
@@ -651,6 +653,8 @@
     const rect=svg.getBoundingClientRect();
     const cs=chartState;
     const px=(evt.clientX-rect.left)/rect.width*cs.W;
+    // keep the tooltip inside the chart card near the edges
+    const clampX=x=>{ const tw=tip.offsetWidth||180; return Math.max(tw/2+2, Math.min(x, rect.width-tw/2-2)); };
     // nearest point: an accumulation year, or a year inside the drawdown wedge
     let bi=0, bd=1e9, dk=-1;
     for(let i=0;i<cs.n;i++){ const d=Math.abs(cs.X(cs.s[i].year)-px); if(d<bd){bd=d;bi=i;} }
@@ -672,7 +676,7 @@
         `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;+ resten solgt nu</span><span>${kr(rA)}</span></div>`+
         `<div class="tr tg"><span class="k"><span class="sw" style="background:var(--tax)"></span>Depot udbetalt</span><span>${kr(cB)}</span></div>`+
         `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;+ resten solgt nu</span><span>${kr(rB)}</span></div>`;
-      tip.style.left=(xx/cs.W*rect.width)+'px';
+      tip.style.left=clampX(xx/cs.W*rect.width)+'px';
       tip.style.top=(Math.min(cs.Y(cs.dTopA(dk)), cs.Y(cs.dTopB(dk)))/cs.H*rect.height)+'px';
       tip.style.opacity=1;
       return;
@@ -691,7 +695,7 @@
       `<div class="tr"><span class="k"><span class="sw" style="background:var(--ask)"></span>Maksimér ASK</span><span>${kr(A)}</span></div>`+
       `<div class="tr"><span class="k"><span class="sw" style="background:var(--tax)"></span>Kun frit depot</span><span>${kr(B)}</span></div>`+
       `<div class="tr tg"><span class="k">ASK-fordel</span><span class="${gap>=0?'pos':'neg'}">${krSigned(gap)}</span></div>`;
-    tip.style.left=(xx/cs.W*rect.width)+'px';
+    tip.style.left=clampX(xx/cs.W*rect.width)+'px';
     tip.style.top=(Math.min(yA,yB)/cs.H*rect.height)+'px';
     tip.style.opacity=1;
   }

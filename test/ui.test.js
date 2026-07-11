@@ -89,6 +89,11 @@ try {
   check('wedge legend hidden again', el('lg_cash').style.display === 'none');
   check('wedge footnote hidden again', el('fn_wedge').style.display === 'none');
 
+  check('ASK-share line shown at defaults (ceiling overflows)', el('lg_ask').style.display === '' && /lineAsk/.test(el('chart').innerHTML));
+  el('ceiling').value = '100000000'; el('ceiling').fire('input');
+  check('ASK-share line hidden when nothing overflows', el('lg_ask').style.display === 'none' && !/lineAsk/.test(el('chart').innerHTML));
+  el('reset').fire('click');
+
   chipEls.find(c => c.dataset.fund === 'Saxo').fire('click');
   check('Saxo chip sets both fee schedules', el('feeMin').value === '10' && el('askFeeMin').value === '22.4',
         el('feeMin').value + '/' + el('askFeeMin').value);
