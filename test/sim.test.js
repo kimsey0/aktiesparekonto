@@ -216,13 +216,14 @@ function check(name, got, want, tol = 0.01) {
 }
 
 // T14: the purchase fee is deductible — via the cost basis in the taxable account,
-// via the value-minus-gross-deposits base in the ASK
+// via the value-minus-gross-deposits base in the ASK. The depot's final sale
+// also deducts its 25 kr sale fee from the disposal sum.
 {
   const R = simulate(P({ initial: 10000, monthly: 0, gross: 0.07, feePct: 0, feeMin: 25,
                          askFeePct: 0, askFeeMin: 25, msAsk: false, msDepot: false }));
   const v = 9975 * 1.07;
   check('T14 ASK tax base net of buy fee', R.A_tax, (v - 10000) * 0.17);
-  check('T14 depot gain measured against gross basis', R.B_tax, (v - 10000) * 0.27);
+  check('T14 depot gain measured against gross basis', R.B_tax, (v - 10000 - 25) * 0.27);
 }
 
 // T15: the 2027 threshold uplift is its own parameter. 1M lump sum, 8.5%
@@ -276,6 +277,29 @@ function check(name, got, want, tol = 0.01) {
   // with a 1-year sale, the instant-sale curve's endpoint IS the headline
   const R1 = simulate(P({}));
   check('T18b 1-year sale: curve end = headline', R1.series[R1.series.length - 1].A, R1.A_after);
+}
+
+// T19: selling costs reduce the disposal sum. 10,000 grows to 10,700; the final
+// sale pays the 25 kr minimum commission, so the taxable gain is 675, not 700.
+{
+  const R = simulate(P({ initial: 10000, gross: 0.07, feeMin: 25 }));
+  check('T19 sale fee deducted from the taxable gain', R.B_tax, 675 * 0.27);
+  check('T19 net proceeds', R.B_after, 10700 - 675 * 0.27 - 25);
+}
+
+// T20: the harvest round trip. 100,000 grows to 110,000 in year 1; gain 10,000
+// fits the band, so the whole position turns over (notional 110,000).
+// Sell fee 110 -> taxable gain 9,890, tax 2,670.30. The 107,219.70 that remains
+// is rebought, paying a 107.22 buy fee that joins the new acquisition cost:
+// value 107,112.48, basis 107,219.70 (exactly one buy fee above the value).
+// Year 2: value grows to 117,823.73, gain 10,604.03; the final sale pays
+// 117.82 in commission -> taxable gain 10,486.20, tax 2,831.28.
+{
+  const R = simulate(P({ initial: 100000, horizon: 2, gross: 0.10, harvest: true,
+                         feePct: 0.001, feeMin: 25 }));
+  check('T20 harvest + final-sale tax', R.B_tax, 2670.30 + 2831.28);
+  check('T20 fees (sell + buy + final sale)', R.B_fee, 110 + 107.22 + 117.82);
+  check('T20 net proceeds', R.B_after, 114874.63);
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');

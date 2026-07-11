@@ -54,7 +54,9 @@ node test/ui.test.js
 - Both limits are adjusted annually under personskatteloven § 20; the model
   projects them forward at a shared, editable rate.
 - Trading commissions are split per market: one schedule for the Danish-listed
-  funds in the taxable account, another for the ASK's Xetra-listed ETF.
+  funds in the taxable account, another for the ASK's Xetra-listed ETF. In the
+  taxable account, purchase commissions join the cost basis and sale commissions
+  reduce the disposal sum, as in the actual assessment.
 - Fund costs are TERs (not the Danish ÅOP measure), and distribution rates are
   averages of the 2024–25 income years — see the explanations on the page.
 

@@ -21,18 +21,20 @@
 
   // sell enough of an average-cost position that the seller nets `target` after
   // realisation tax and commission (grossed up; capped at the position's value).
+  // The sale commission reduces the disposal sum before the gain is taxed, as
+  // in the actual assessment; rg is that post-fee taxable gain.
   // Fixed-point iteration — the tax+fee fraction is well below 1, so it contracts.
   function sellForNet(a, target, thr, used, P){
     const gainFrac = a.v>0 ? Math.max(0, a.v-a.basis)/a.v : 0;
     let gross=target;
     for(let i=0;i<8;i++){
-      const tax=bracketTax(gross*gainFrac, thr, used, P.taxLow, P.taxHigh);
       const fee=Math.max(P.feePct*gross, P.feeMin);
+      const tax=bracketTax(gross*gainFrac-fee, thr, used, P.taxLow, P.taxHigh);
       gross=Math.min(a.v, target+tax+fee);
     }
-    const rg=gross*gainFrac;
-    const tax=bracketTax(rg, thr, used, P.taxLow, P.taxHigh);
     const fee=Math.max(P.feePct*gross, P.feeMin);
+    const rg=Math.max(0, gross*gainFrac-fee);
+    const tax=bracketTax(rg, thr, used, P.taxLow, P.taxHigh);
     return {gross, rg, tax, fee, net: gross-tax-fee};
   }
 
@@ -74,9 +76,10 @@
       const gain=Math.max(0, v-b);
       let sell;
       if(P.drawMode==='kink'){
-        // sell just enough gain to fill the year's remaining low band; a bucket
-        // given a common window spreads evenly into it instead; the final window
-        // year force-sells whatever the band hasn't absorbed
+        // sell just enough gain to fill the year's remaining low band (the sale
+        // fee shaves the taxable gain, so the fill runs a commission short —
+        // second-order); a bucket given a common window spreads evenly into it
+        // instead; the final window year force-sells whatever the band hasn't absorbed
         const band=Math.max(0, thrOf(k)-used);
         if(k>=N-1){ sell=v; if(gain>band) out.forced=true; }
         else {
@@ -88,19 +91,20 @@
       }
       let net=0;
       if(sell>0.01){
-        const rg=sell*gain/v;
-        const tax=bracketTax(rg, thrOf(k), used, P.taxLow, P.taxHigh);
         const fee=Math.max(P.feePct*sell, P.feeMin);
+        const rg=Math.max(0, sell*gain/v-fee);   // selling costs reduce the disposal sum
+        const tax=bracketTax(rg, thrOf(k), used, P.taxLow, P.taxHigh);
         net=Math.max(0, sell-tax-fee);
         b-=sell*(b/v); v-=sell;
         out.tax+=tax; out.fee+=fee; out.after+=net;
       }
       // abort = what the remainder would net, sold as a lump against the next
       // year's fresh band (approximate; feeds the chart's wealth-along-the-way line)
-      const abort = v>1
-        ? Math.max(0, v - bracketTax(Math.max(0,v-b), thrOf(k+1), P.threshUsed, P.taxLow, P.taxHigh)
-                       - Math.max(P.feePct*v, P.feeMin))
-        : Math.max(0, v);
+      let abort=Math.max(0, v);
+      if(v>1){
+        const af=Math.max(P.feePct*v, P.feeMin);
+        abort=Math.max(0, v - bracketTax(Math.max(0,v-b)-af, thrOf(k+1), P.threshUsed, P.taxLow, P.taxHigh) - af);
+      }
       out.wd.push({net, k, abort});
       out.years=k+1;
       if(v<=1) break;
@@ -171,11 +175,15 @@
       const g=Math.min(Math.max(0, thrY-used), gain);
       if(g<=1) return 0;
       const notional=g/(gain/a.v);                  // shares sold to realise g
-      const tax=g*P.taxLow;                          // within the band by construction
-      const fee=2*Math.max(P.feePct*notional, P.feeMin);  // sell + buy
-      a.v-=(tax+fee); a.basis+=(g-tax-fee);
-      a.taxCum+=tax; a.feeCum+=fee;
-      return g;
+      const sellFee=Math.max(P.feePct*notional, P.feeMin);
+      const tg=Math.max(0, g-sellFee);              // selling costs reduce the disposal sum
+      const tax=tg*P.taxLow;                        // within the band by construction
+      const buyFee=Math.max(P.feePct*(notional-sellFee-tax), P.feeMin);
+      // the buy fee is capitalised into the new acquisition cost, so the basis
+      // ends exactly one buy fee above the rebought value
+      a.v-=(tax+sellFee+buyFee); a.basis+=(g-sellFee-tax);
+      a.taxCum+=tax; a.feeCum+=sellFee+buyFee;
+      return tg;
     }
 
     // the year's distribution/minimumsindkomst, taxed as share income and based
