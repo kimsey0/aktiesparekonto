@@ -258,23 +258,24 @@ function check(name, got, want, tol = 0.01) {
   check('T17b forced flag reported', R2.B_forced ? 1 : 0, 1, 0);
 }
 
-// T18: the payout path exposed for the chart's drawdown wedge: paid-out plus
-// outstanding always equals the final result (the wedge joins the main curve
-// without a jump), and everything is paid out by the last year
+// T18: the chart data for the drawdown wedge. The curves show wealth if
+// everything were sold in the given year; the wedge's wealth path (paid out +
+// remainder sold now) starts where that curve ends (within one band-year of
+// abort headroom) and ends exactly at the plan's total, with the payout path
+// converging on the same number.
 {
   const R = simulate(P({ liqYears: 10, gross: 0.07, infl: 0.02, horizon: 2 }));
   check('T18 path length = drawdown years', R.drawSeries.length, 10, 0);
-  for (const e of R.drawSeries) {
-    if (Math.abs(e.cashA + e.outA - R.A_after) > 0.01 ||
-        Math.abs(e.cashBreal + e.outBreal - R.B_real) > 0.01) {
-      console.log('T18 continuity broken at year', e.k); fails++;
-    }
-  }
-  console.log('T18 paid-out + outstanding = final result in every year (no lines above)');
-  const e = R.drawSeries[R.drawSeries.length - 1];
-  check('T18 cumulative payouts = final result (A)', e.cashA, R.A_after, 0.5);
-  check('T18 nothing outstanding at the end', e.outA + e.outB, 0);
-  check('T18 real path converges too', e.cashAreal, R.A_real, 0.5);
+  const first = R.drawSeries[0], e = R.drawSeries[R.drawSeries.length - 1];
+  const instant = R.series[R.series.length - 1].A;
+  check('T18 wealth path starts near the instant-sale curve',
+        Math.abs(first.wealthA - instant) < 0.03 * instant ? 1 : 0, 1, 0);
+  check('T18 wealth path ends at the plan total', e.wealthA, R.A_after, 0.5);
+  check('T18 payouts converge on the total', e.cashA, R.A_after, 0.5);
+  check('T18 real payouts converge too', e.cashAreal, R.A_real, 0.5);
+  // with a 1-year sale, the instant-sale curve's endpoint IS the headline
+  const R1 = simulate(P({}));
+  check('T18b 1-year sale: curve end = headline', R1.series[R1.series.length - 1].A, R1.A_after);
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');

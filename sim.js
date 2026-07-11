@@ -95,7 +95,13 @@
         b-=sell*(b/v); v-=sell;
         out.tax+=tax; out.fee+=fee; out.after+=net;
       }
-      out.wd.push({net, k});
+      // abort = what the remainder would net, sold as a lump against the next
+      // year's fresh band (approximate; feeds the chart's wealth-along-the-way line)
+      const abort = v>1
+        ? Math.max(0, v - bracketTax(Math.max(0,v-b), thrOf(k+1), P.threshUsed, P.taxLow, P.taxHigh)
+                       - Math.max(P.feePct*v, P.feeMin))
+        : Math.max(0, v);
+      out.wd.push({net, k, abort});
       out.years=k+1;
       if(v<=1) break;
     }
@@ -124,7 +130,10 @@
       const net=Math.max(0, sell-fee-fx);
       carry+=sell-net;   // costs paid inside the account stay deductible
       v-=sell;
-      out.fee+=fee; out.fx+=fx; out.after+=net; out.wd.push({net, k});
+      const abort = v>1
+        ? Math.max(0, (v-Math.max(P.askFeePct*v, P.askFeeMin))*(1-P.askForex))
+        : Math.max(0, v);
+      out.fee+=fee; out.fx+=fx; out.after+=net; out.wd.push({net, k, abort});
       out.years=k+1;
     }
     return out;
@@ -148,8 +157,11 @@
     let ask={v:0,yStart:0,contribYr:0,carry:0,taxLast:0,taxCum:0,feeCum:0,fxCum:0};
     let ov ={v:0,basis:0,divBase:0,usedYr:0,taxCum:0,feeCum:0};   // overflow taxable (strategy A)
     let all={v:0,basis:0,divBase:0,taxCum:0,feeCum:0};            // all taxable (strategy B)
-    let budget=0, firstOverflow=null;
+    let budget=0, firstOverflow=null, fin=null;
     const series=[];
+    // the chart's curves show wealth if everything were sold within the given
+    // year (one lump per bucket); P1 prices that instant exit
+    const P1=Object.assign({}, P, {drawMode:'years', liqYears:1});
 
     // realise gain up to the remaining low-rate band, then buy back (steps up basis).
     // returns the band consumed so later events in the same year price correctly.
@@ -274,62 +286,73 @@
         usedB+=divEvent(all, usedB);
         if(!lastYear) usedB+=harvest(all, usedB);
 
-        // after-tax withdrawals if the sale starts this year, using the chosen
-        // drawdown strategy; the ASK is withdrawn in parallel over the same years.
-        // In kink mode the strategy that needs the longest band-limited exit sets
-        // the common window, and buckets with slack spread evenly into it.
+        // chart point: after-tax wealth if everything were sold this year
         const thrOf=k=>thrAt(y+k);
-        let dOv=drawdown(ov.v, ov.basis, P, thrOf, usedA);
-        let dAll=drawdown(all.v, all.basis, P, thrOf, usedB);
-        let NA=Math.min(100, Math.max(1,Math.round(P.liqYears)));
-        if(P.drawMode==='kink'){
-          NA=Math.max(1, dOv.years, dAll.years);
-          if(dOv.years && dOv.years<NA) dOv=drawdown(ov.v, ov.basis, P, thrOf, usedA, NA);
-          if(dAll.years && dAll.years<NA) dAll=drawdown(all.v, all.basis, P, thrOf, usedB, NA);
-        }
-        const dAsk=askDrawdown(ask.v, ask.carry, P, NA);
-        // real mode deflates each withdrawal by its own payout year
-        const defl=k=>Math.pow(1+P.infl, y+1+k);
-        const realSum=w=>w.reduce((s,x)=>s+x.net/defl(x.k),0);
+        const dOv1=drawdown(ov.v, ov.basis, P1, thrOf, usedA);
+        const dAll1=drawdown(all.v, all.basis, P1, thrOf, usedB);
+        const dAsk1=askDrawdown(ask.v, ask.carry, P, 1);
+        const deflY=Math.pow(1+P.infl, y+1);
         series.push({year:y+1,
-          A:dAsk.after+dOv.after, B:dAll.after,
-          Areal:realSum(dAsk.wd)+realSum(dOv.wd), Breal:realSum(dAll.wd),
-          ask:dAsk.after, askReal:realSum(dAsk.wd),
-          dOv, dAll, dAsk});
+          A:dAsk1.after+dOv1.after, B:dAll1.after,
+          Areal:(dAsk1.after+dOv1.after)/deflY, Breal:dAll1.after/deflY,
+          ask:dAsk1.after, askReal:dAsk1.after/deflY});
+
+        if(lastYear){
+          // the chosen strategy, simulated once from the horizon (the headline
+          // numbers and the chart's drawdown wedge). In kink mode the strategy
+          // that needs the longest band-limited exit sets the common window,
+          // buckets with slack spread evenly into it, and the ASK is withdrawn
+          // in parallel over the same years.
+          let dOv=drawdown(ov.v, ov.basis, P, thrOf, usedA);
+          let dAll=drawdown(all.v, all.basis, P, thrOf, usedB);
+          let NA=Math.min(100, Math.max(1,Math.round(P.liqYears)));
+          if(P.drawMode==='kink'){
+            NA=Math.max(1, dOv.years, dAll.years);
+            if(dOv.years && dOv.years<NA) dOv=drawdown(ov.v, ov.basis, P, thrOf, usedA, NA);
+            if(dAll.years && dAll.years<NA) dAll=drawdown(all.v, all.basis, P, thrOf, usedB, NA);
+          }
+          const dAsk=askDrawdown(ask.v, ask.carry, P, NA);
+          // real mode deflates each payout by its own year
+          const realSum=w=>w.reduce((s,x)=>s+x.net/Math.pow(1+P.infl, y+1+x.k),0);
+          fin={dOv, dAll, dAsk,
+               A:dAsk.after+dOv.after, B:dAll.after,
+               Areal:realSum(dAsk.wd)+realSum(dOv.wd), Breal:realSum(dAll.wd)};
+        }
       }
     }
     const contributed=P.initial+P.monthly*months;
-    const last=series[series.length-1];
-    // the payout path of the final sale, year by year, for the chart's
-    // drawdown wedge: cumulative net cash received, and what is still to come
-    // (the remaining future payouts, so cash+outstanding always equals the
-    // final result — the wedge joins the main curve without a jump). Real
-    // amounts deflate each payout by its own year.
-    const wdAt=(d,k)=>d.wd[k]||{net:0};
-    const dLen=Math.max(last.dAsk.wd.length, last.dOv.wd.length, last.dAll.wd.length);
+    // the chosen plan's payout path, year by year, for the chart's drawdown
+    // wedge: cumulative net cash received, and the wealth along the way —
+    // cash plus what the remainder would net if sold at once. The wealth path
+    // starts where the instant-sale curve ends and climbs to the plan's total,
+    // making the growth during the sale years visible. Real amounts deflate
+    // each payout by its own year.
+    const wdAt=(d,k)=>d.wd[k]||{net:0,abort:0};
+    const dLen=Math.max(fin.dAsk.wd.length, fin.dOv.wd.length, fin.dAll.wd.length);
     const deflD=k=>Math.pow(1+P.infl, P.horizon+k);
     const drawSeries=[];
     for(let k=0,cA=0,cB=0,cAr=0,cBr=0;k<dLen;k++){
-      const a1=wdAt(last.dAsk,k), a2=wdAt(last.dOv,k), b=wdAt(last.dAll,k);
+      const a1=wdAt(fin.dAsk,k), a2=wdAt(fin.dOv,k), b=wdAt(fin.dAll,k);
       cA+=a1.net+a2.net; cB+=b.net;
       cAr+=(a1.net+a2.net)/deflD(k); cBr+=b.net/deflD(k);
+      const abA=a1.abort+a2.abort, abB=b.abort;
       drawSeries.push({k,
-        cashA:cA, outA:last.A-cA, cashB:cB, outB:last.B-cB,
-        cashAreal:cAr, outAreal:last.Areal-cAr,
-        cashBreal:cBr, outBreal:last.Breal-cBr});
+        cashA:cA, wealthA:cA+abA, cashB:cB, wealthB:cB+abB,
+        cashAreal:cAr, wealthAreal:cAr+abA/deflD(k),
+        cashBreal:cBr, wealthBreal:cBr+abB/deflD(k)});
     }
     return {
       series, firstOverflow, contributed, drawSeries,
-      A_after: last.A, B_after: last.B,
-      A_real: last.Areal, B_real: last.Breal,
-      askFinal: last.ask, overflowFinal: last.dOv.after,
-      A_tax: ask.taxCum + ov.taxCum + last.dOv.tax + last.dAsk.tax,
-      B_tax: all.taxCum + last.dAll.tax,
-      A_fee: ask.feeCum + ov.feeCum + last.dOv.fee + last.dAsk.fee,
-      B_fee: all.feeCum + last.dAll.fee,
-      A_fx: ask.fxCum + last.dAsk.fx,
-      A_years: last.dOv.years, B_years: last.dAll.years,
-      A_forced: last.dOv.forced, B_forced: last.dAll.forced
+      A_after: fin.A, B_after: fin.B,
+      A_real: fin.Areal, B_real: fin.Breal,
+      askFinal: fin.dAsk.after, overflowFinal: fin.dOv.after,
+      A_tax: ask.taxCum + ov.taxCum + fin.dOv.tax + fin.dAsk.tax,
+      B_tax: all.taxCum + fin.dAll.tax,
+      A_fee: ask.feeCum + ov.feeCum + fin.dOv.fee + fin.dAsk.fee,
+      B_fee: all.feeCum + fin.dAll.fee,
+      A_fx: ask.fxCum + fin.dAsk.fx,
+      A_years: fin.dOv.years, B_years: fin.dAll.years,
+      A_forced: fin.dOv.forced, B_forced: fin.dAll.forced
     };
   }
 
