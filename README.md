@@ -13,9 +13,13 @@ The model simulates month by month with annual tax settlement, and the final
 drawdown year by year: whatever is not yet sold stays invested, keeps
 distributing, and is taxed along the way (the ASK is withdrawn in parallel over
 the same years), so multi-year sale strategies are compared on equal cash-flow
-timing. Every assumption is an editable input, and the methodology — including
-the deliberate simplifications — is documented in detail at the bottom of the
-page itself ("Sådan regner modellen").
+timing. In "up to the threshold" mode the strategy that needs the longest
+band-limited exit sets a common sale window for both (capped at 30 years, with
+a flagged forced sale of any remainder). The chart plots after-tax wealth if
+everything were sold in a given year; the chosen plan's payout path is drawn
+separately from the horizon onwards. Every assumption is an editable input,
+and the methodology — including the deliberate simplifications — is documented
+in detail at the bottom of the page itself ("Sådan regner modellen").
 
 ## Files
 
