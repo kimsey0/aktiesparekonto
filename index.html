@@ -318,7 +318,16 @@
       </div>
 
       <div class="group">
-        <div class="ghead"><span class="gt">Skattehøst</span></div>
+        <div class="ghead"><span class="gt">Handel &amp; skattehøst</span></div>
+        <div class="field">
+          <label>Månedsopsparing — kurtagefri køb</label>
+          <div class="seg full" role="group" aria-label="Månedsopsparing">
+            <button id="ms_none" aria-pressed="false">Ingen</button>
+            <button id="ms_depot" aria-pressed="true">Frit depot</button>
+            <button id="ms_both" aria-pressed="false">Begge</button>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:2px 0 12px">Fast, kurtagefrit månedskøb. Hos Nordnet kan månedsopsparingen ikke kobles til aktiesparekontoen, så ASK-køb betaler kurtage — mærkbart ved små månedlige beløb. Salg og veksling koster stadig.</p>
         <div class="field" id="harvestField">
           <label class="check"><input type="checkbox" id="harvest"> Realisér gevinst op til grænsen hvert år</label>
         </div>
@@ -420,7 +429,8 @@
       <p><strong>Det frie depot realisationsbeskattes.</strong> Med en realisationsbeskattet, minimumsbeskattet aktiefond (forudfyldt med STIIAM) udskydes skatten på kursgevinsten til salg, mens den årlige minimumsindkomst beskattes som aktieindkomst hvert år. Skatteudskydelsen er depotets store fordel — kursgevinsten forrentes ubeskåret indtil du sælger. Delsalg regnes efter gennemsnitsmetoden.</p>
       <p><strong>Forskellige fonde i de to spande.</strong> Inde i ASK beskattes alt med 17 % uanset fondstype, så man vælger den billigste akkumulerende verdens-ETF (forudfyldt med WEBN, TER 0,07 %). Uden for ASK ville en akkumulerende ETF derimod blive lagerbeskattet til 27/42 %, så man vælger en realisationsbeskattet minimumsbeskattet fond i stedet (skift mellem STIIAM, SPIIMA og SPVIGAKL med knapperne øverst i sektionen). Den typisk lidt højere omkostningsprocent og valutavekslingen er prisen for ASK'ens lave skat. Alle omkostninger er TER — ikke ÅOP — så ind- og udtrædelsessatser er bevidst ikke medregnet: du handler typisk med en anden markedsdeltager inden for spændet, og det reelle spænd varierer for både danske fonde og ETF'er. Bemærk også, at fondene ikke følger præcis samme indeks (WEBN er large/mid cap; Sparindex-fondene er ESG-screenede), og at udenlandsk kildeskat inde i fondene ligger implicit i dit bruttoafkast — modellen antager samme bruttoafkast for alle.</p>
       <p><strong>Udbytte: kontant eller teknisk.</strong> SPVIGAKL og SPIIMA udbetaler kontant udbytte: modellen beskatter det og geninvesterer resten, så anskaffelsessummen stiger med nettobeløbet. STIIAM udlodder ikke kontant — minimumsindkomsten er «teknisk»: du beskattes af den, anskaffelsessummen opskrives med bruttobeløbet, og modellen finansierer skatten ved at sælge lidt af beholdningen. Procenterne er gennemsnit af indkomstårene 2024–25 målt mod kurs medio 2026: STIIAM 1,4 %, SPVIGAKL 3,2 % (svinger reelt ca. 1,8–5 % afhængigt af fondens realiserede gevinster). SPIIMA er ny (maj 2026) uden historik og arver SPVIGAKL's sats som proxy — ren antagelse.</p>
-      <p><strong>Valutaveksling kun i ASK.</strong> De billige verdens-ETF'er handles typisk i euro, og hverken Nordnet eller Saxo tillader valutakonti på en aktiesparekonto, så der veksles automatisk DKK↔EUR — her som standard 0,25 % hver vej. De danske fonde er i kroner, så her er der ingen veksling. Løbende køb regnes kurtagefri (svarende til månedsopsparing — bemærk at vekslingen stadig betales dér).</p>
+      <p><strong>Valutaveksling kun i ASK.</strong> De billige verdens-ETF'er handles typisk i euro, og hverken Nordnet eller Saxo tillader valutakonti på en aktiesparekonto, så der veksles automatisk DKK↔EUR — her som standard 0,25 % hver vej. De danske fonde er i kroner, så her er der ingen veksling.</p>
+      <p><strong>Månedsopsparing gør køb gratis — men typisk ikke på ASK.</strong> Flere mæglere tilbyder kurtagefri køb én fast dag om måneden; hos Nordnet kan månedsopsparingen dog ikke kobles til aktiesparekontoen. Standardindstillingen er derfor «Frit depot»: depotkøb er gratis, mens hvert ASK-køb betaler kurtage — og med minimumskurtagen er det en mærkbar procentdel af små månedlige beløb. Vekslingen betales uanset, og salg koster altid kurtage. Købskurtage lægges til anskaffelsessummen i det frie depot, som i den faktiske opgørelse. Engangsindskuddet følger samme kontakt (reelt ville et stort engangskøb koste én almindelig kurtage — forskellen er ubetydelig).</p>
       <p><strong>Loftet er et indskudsloft, ikke et formueloft.</strong> 174.200 kr. i 2026 (dobbelt for par, se nedenfor). Plads til indskud opgøres mod kontoens værdi pr. 31. december (aktiesparekontolovens § 9): vokser værdien over loftet, kan du ikke indskyde mere, men du behøver ikke sælge. Modellen lægger derfor alt over loftet i det frie depot — i begge strategier — så den marginale krone over loftet er ens og kun den afskærmede del tæller.</p>
       <p><strong>ASK-skatten betales udefra.</strong> Lagerskatten trækkes fra aktiesparekontoen, men den må altid genindskydes — også selvom kontoen står over loftet (§ 9, stk. 2). I «Maksimér ASK» fyldes kontoen derfor straks op igen — først af årets indbetalinger, og rækker de ikke, ved at sælge tilsvarende fra det frie depot (kan slås fra under Avanceret). Så længe du indbetaler mere end skatten, sker der ingen tvangssalg; kun en ren lump-sum-opsparer uden løbende indbetalinger tærer på depotet for at holde ASK'en fuld. Over lange horisonter er det bedre at holde mest muligt i den lavt beskattede spand; ved meget korte resthorisonter kan det koste mere i fremrykket realisationsskat, end det sparer.</p>
       <p><strong>Gift?</strong> Fluebenet fordobler både loftet (I kan oprette hver jeres aktiesparekonto) og progressionsgrænsen (uudnyttet grundbeløb overføres automatisk mellem ægtefæller, der er samlevende ved årets udløb — personskattelovens § 8 a, stk. 4). Det forudsætter altså reelt, at I begge opretter konti og lægger fælles økonomi til grund.</p>
@@ -428,7 +438,7 @@
       <p><strong>To måder at sælge ud på.</strong> «Fast antal år» fordeler salget ligeligt over de valgte år; «Op til grænsen» sælger netop progressionsgrænsen i gevinst om året, så alt rammer den lave sats, og viser hvor mange år det tager — bliver det til mange årtier, er det matematisk korrekt men næppe realistisk, og værktøjet advarer. «Skattehøst» gør det samme undervejs i opsparingen: realisér gevinst op til grænsen hvert år og genkøb, så anskaffelsessummen trinnes op og slutskattens 42 %-del skrumper. Det er reelt frivillig lagerbeskatning — bare til 27 % i stedet for ASK'ens 17 % og med kurtage oveni — så det hjælper kun, når slutsalget ellers ville ramme den høje sats, og sjældent nok til at betale sig. Da «Op til grænsen» allerede realiserer op til grænsen hvert år, er skattehøst kun tilgængelig sammen med «Fast antal år». Praktisk detalje: Danmark har ingen egentlig wash-sale-regel, men genkøb <em>samme dag</em> risikerer at blive tilsidesat skattemæssigt (Den juridiske vejledning C.B.2.1.4.10) — vent mindst en handelsdag og handl til markedskurs.</p>
       <p><strong>Inflation rammer lager hårdere.</strong> Skatten beregnes af nominelle gevinster, så lagerbeskatningen tærer også på den inflationsskabte del af afkastet hvert år. Reale tal er nominelle tal deflateret med din inflationsantagelse frem til det viste år.</p>
       <p><strong>Det nye regeringsudspil.</strong> Regeringsgrundlaget (juni 2026) vil hæve loftet til 500.000 kr. og opgøre det efter oprindeligt indskud frem for løbende værdi — en politisk målsætning, ikke vedtaget lov. Du kan tilnærme effekten ved at sætte <code>Indskudsloft = 500000</code>. Den varslede undersøgelse af en norsk-inspireret beskatning ved udtræk ville ændre selve lagerprincippet og er ikke modelleret.</p>
-      <p><strong>Forenklinger.</strong> Deterministisk afkast — ingen volatilitet, så ASK'ens tabsfremførsel udløses ikke i standardscenariet; med udsving betaler ASK skat i gode år, mens tab kun fremføres, så fordelen bliver typisk lidt mindre end vist (en Monte Carlo-udgave er på ønskelisten). Skat betales af spanden selv og trækkes i modellen 31/12 — reelt hæves ASK-skatten først medio februar året efter og aktieskat via årsopgørelsen, så modellen er en anelse konservativ. Kurtage (max-modellen fra Nordnet/Saxo) lægges kun på de aktive handler — skattehøst, ASK-finansiering og slutsalg i begge spande — ikke på løbende køb og geninvestering af udbytter; gevinst og kurtage på det lille salg, der finansierer skatten af teknisk udbytte, ignoreres. Ved fordelt udtrækning antages restbeholdningen ikke at vokse eller udlodde i udtrækningsårene (let konservativt, og ens for begge spande). Skattestyrelsens positivliste opdateres årligt — ryger en ETF af listen, ændres dens beskatning uden for ASK. Personfradrag og modregning af afkast i offentlige ydelser — hvor ASK'en har en yderligere fordel, da dens afkast ikke tæller med — er ikke medregnet. Sammenligninger med pensionsordninger (alders-/ratepension) er uden for værktøjets scope.</p>
+      <p><strong>Forenklinger.</strong> Deterministisk afkast — ingen volatilitet, så ASK'ens tabsfremførsel udløses ikke i standardscenariet; med udsving betaler ASK skat i gode år, mens tab kun fremføres, så fordelen bliver typisk lidt mindre end vist (en Monte Carlo-udgave er på ønskelisten). Skat betales af spanden selv og trækkes i modellen 31/12 — reelt hæves ASK-skatten først medio februar året efter og aktieskat via årsopgørelsen, så modellen er en anelse konservativ. Kurtage (max-modellen fra Nordnet/Saxo) lægges på de aktive handler — skattehøst, ASK-finansiering og slutsalg i begge spande — samt på løbende køb i det omfang, månedsopsparingen ikke dækker dem; geninvestering af udbytter regnes fortsat gratis, og gevinst og kurtage på det lille salg, der finansierer skatten af teknisk udbytte, ignoreres. Ved fordelt udtrækning antages restbeholdningen ikke at vokse eller udlodde i udtrækningsårene (let konservativt, og ens for begge spande). Skattestyrelsens positivliste opdateres årligt — ryger en ETF af listen, ændres dens beskatning uden for ASK. Personfradrag og modregning af afkast i offentlige ydelser — hvor ASK'en har en yderligere fordel, da dens afkast ikke tæller med — er ikke medregnet. Sammenligninger med pensionsordninger (alders-/ratepension) er uden for værktøjets scope.</p>
     </div>
     <p class="disc">Værktøjet er til at oplyse din egen beslutning og er ikke skatterådgivning eller en anbefaling. 2026-satser pr. Skattestyrelsen; fonds-TER, udbytteprocenter og vekselgebyrer er vejledende og ændrer sig. Kontrollér aktuelle tal hos din udbyder og skat.dk. Kildekode og tests: <a href="https://github.com/kimsey0/aktiesparekonto" style="color:inherit">github.com/kimsey0/aktiesparekonto</a>.</p>
   </section>
@@ -482,6 +492,7 @@
       taxLow:v('lowRate')/100, taxHigh:v('highRate')/100, threshold:v('thresh'),
       threshUsed:v('threshUsed'),
       married:$('married').checked, liqYears:Math.max(1,Math.round(v('liq'))), redeposit:$('redeposit').checked,
+      msDepot:msMode!=='none', msAsk:msMode==='both',
       drawMode, harvest: drawMode!=='kink' && $('harvest').checked, feePct:v('feePct')/100, feeMin:v('feeMin')
     };
   }
@@ -594,6 +605,7 @@
   let showReal=false;
   let drawMode='years';
   let divMode='tech';
+  let msMode='depot';   // månedsopsparing: commission-free recurring buys ('none'|'depot'|'both')
   function render(){
     const P=readParams();
     // label echoes
@@ -684,6 +696,11 @@
   $('redeposit').addEventListener('change',render);
   $('dm_years').addEventListener('click',()=>{ drawMode='years'; $('dm_years').setAttribute('aria-pressed','true'); $('dm_kink').setAttribute('aria-pressed','false'); render(); });
   $('dm_kink').addEventListener('click',()=>{ drawMode='kink'; $('dm_kink').setAttribute('aria-pressed','true'); $('dm_years').setAttribute('aria-pressed','false'); render(); });
+  function setMsMode(m){
+    msMode=m;
+    ['none','depot','both'].forEach(x=>$('ms_'+x).setAttribute('aria-pressed', x===m?'true':'false'));
+  }
+  ['none','depot','both'].forEach(x=>$('ms_'+x).addEventListener('click',()=>{ setMsMode(x); render(); }));
 
   // ---------- fund presets ----------
   // Only fund-specific fields are tied to a preset; the active chip clears as soon
@@ -745,7 +762,7 @@
       const r=$(k+'_r'); if(r) r.value=DEFAULTS[k];
     }
     drawMode='years'; $('dm_years').setAttribute('aria-pressed','true'); $('dm_kink').setAttribute('aria-pressed','false');
-    setDivMode('tech');
+    setDivMode('tech'); setMsMode('depot');
     activeFund={ask:'WEBN', tax:'STIIAM', fee:'Nordnet'}; updateFundChips();
     render();
   });

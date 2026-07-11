@@ -7,7 +7,7 @@ const BASE = {
   askTer: 0, askForex: 0, askTax: 0.17, askCeiling: 1e12, reg: 0,
   taxTer: 0, taxDiv: 0, divMode: 'cash', taxLow: 0.27, taxHigh: 0.42, threshold: 79400,
   threshUsed: 0, married: false, liqYears: 1, redeposit: true, drawMode: 'years',
-  harvest: false, feePct: 0, feeMin: 0
+  harvest: false, feePct: 0, feeMin: 0, msDepot: true, msAsk: true
 };
 const P = o => Object.assign({}, BASE, o);
 const r2 = x => Math.round(x * 100) / 100;
@@ -130,6 +130,27 @@ function check(name, got, want, tol = 0.01) {
 {
   const R1 = simulate(P({ horizon: 1, gross: 0.07, feePct: 0.001, feeMin: 25, harvest: true }));
   check('T12 1 year with harvest = only the final sale fee', R1.B_fee, Math.max(0.001 * 107000, 25), 1);
+}
+
+// T13: månedsopsparing — buy-side kurtage per bucket
+{
+  const o = { initial: 0, monthly: 1000, horizon: 1, gross: 0, feePct: 0.001, feeMin: 25 };
+  // no månedsopsparing anywhere: every 1,000 kr buy pays the 25 kr minimum
+  const R = simulate(P(Object.assign({}, o, { msAsk: false, msDepot: false })));
+  check('T13 ASK after (12x25 buy fees + 25 sale fee)', R.A_after, 12000 - 300 - 25);
+  check('T13 depot after (same)', R.B_after, 12000 - 300 - 25);
+  // månedsopsparing on the taxable account only (the default UI setting)
+  const R2 = simulate(P(Object.assign({}, o, { msAsk: false, msDepot: true })));
+  check('T13b depot buys free, ASK buys pay', R2.B_after - R2.A_after, 300, 0.01);
+}
+
+// T14: the purchase fee is deductible — via the cost basis in the taxable account,
+// via the value-minus-gross-deposits base in the ASK
+{
+  const R = simulate(P({ initial: 10000, monthly: 0, gross: 0.07, feePct: 0, feeMin: 25, msAsk: false, msDepot: false }));
+  const v = 9975 * 1.07;
+  check('T14 ASK tax base net of buy fee', R.A_tax, (v - 10000) * 0.17);
+  check('T14 depot gain measured against gross basis', R.B_tax, (v - 10000) * 0.27);
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');

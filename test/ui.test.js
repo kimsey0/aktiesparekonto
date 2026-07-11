@@ -88,6 +88,14 @@ try {
   el('reset').fire('click');
   check('reset restores defaults', num(el('A_big').textContent) === A0 && el('taxDiv').value == 1.4 && el('dv_tech')._attrs['aria-pressed'] === 'true');
 
+  const Ad = num(el('A_big').textContent);   // defaults again after reset (ms = depot)
+  el('ms_none').fire('click');
+  check('ms=none: A drops (depot buys pay kurtage too)', num(el('A_big').textContent) < Ad);
+  el('ms_both').fire('click');
+  check('ms=both: A rises (ASK buys free)', num(el('A_big').textContent) > Ad);
+  el('reset').fire('click');
+  check('reset restores månedsopsparing default', el('ms_depot')._attrs['aria-pressed'] === 'true');
+
   el('seg_real').fire('click');
   check('real-terms view renders', /path class="lineA"/.test(el('chart').innerHTML));
 } catch (e) {

@@ -52,7 +52,7 @@
     const ceilBase=P.askCeiling*(P.married?2:1);
     let thrY=thrBase;   // this year's progression threshold — § 20-adjusted by P.reg
 
-    let ask={v:0,yStart:0,contribYr:0,carry:0,taxLast:0,taxCum:0};
+    let ask={v:0,yStart:0,contribYr:0,carry:0,taxLast:0,taxCum:0,feeCum:0};
     let ov ={v:0,basis:0,taxCum:0,feeCum:0};   // overflow taxable (strategy A)
     let all={v:0,basis:0,taxCum:0,feeCum:0};   // all taxable (strategy B)
     let budget=0, firstOverflow=null;
@@ -105,13 +105,20 @@
       let toOv=contrib-toAsk;
       if(toOv>1 && firstOverflow===null) firstOverflow=y+1;
 
-      // deposits count gross in the mark-to-market tax base — the FX cost is thereby
-      // implicitly deductible, as in the actual assessment (value minus deposits)
-      const askNet=toAsk*(1-P.askForex);
-      ask.v+=askNet; ask.contribYr+=toAsk; ask.v*=(1+rAsk);
+      // buy-side kurtage: recurring buys through månedsopsparing (P.msAsk/P.msDepot)
+      // are commission-free; without it every buy pays the normal trading fee.
+      // Purchase fees join the cost basis in the taxable account (as in the actual
+      // assessment), so basis counts the gross amount while value receives net.
+      // ASK deposits also count gross in the mark-to-market base, which makes both
+      // the buy fee and the FX cost implicitly deductible there.
+      const buyFeeAsk=(!P.msAsk && toAsk>0) ? Math.max(P.feePct*toAsk, P.feeMin) : 0;
+      const askNet=(toAsk-buyFeeAsk)*(1-P.askForex);
+      ask.v+=askNet; ask.contribYr+=toAsk; ask.feeCum+=buyFeeAsk; ask.v*=(1+rAsk);
 
-      ov.v+=toOv; ov.basis+=toOv; ov.v*=(1+rTax);
-      all.v+=contrib; all.basis+=contrib; all.v*=(1+rTax);
+      const buyFeeOv=(!P.msDepot && toOv>0) ? Math.max(P.feePct*toOv, P.feeMin) : 0;
+      ov.v+=toOv-buyFeeOv; ov.basis+=toOv; ov.feeCum+=buyFeeOv; ov.v*=(1+rTax);
+      const buyFeeAll=(!P.msDepot && contrib>0) ? Math.max(P.feePct*contrib, P.feeMin) : 0;
+      all.v+=contrib-buyFeeAll; all.basis+=contrib; all.feeCum+=buyFeeAll; all.v*=(1+rTax);
 
       if(mi===11){
         const lastYear = (y===P.horizon-1);
@@ -165,7 +172,7 @@
       askFinal: last.ask, overflowFinal: last.overflow,
       A_tax: ask.taxCum + ov.taxCum + last.dOv.tax,
       B_tax: all.taxCum + last.dAll.tax,
-      A_fee: ov.feeCum + last.dOv.fee + last.askFee,
+      A_fee: ask.feeCum + ov.feeCum + last.dOv.fee + last.askFee,
       B_fee: all.feeCum + last.dAll.fee,
       A_years: last.dOv.years, B_years: last.dAll.years,
       deflate: Math.pow(1+P.infl, P.horizon)
