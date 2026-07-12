@@ -48,6 +48,8 @@ global.document = {
   createElement: () => ({ click() {} }),
 };
 global.window = { ASKSIM: require('../sim.js'), addEventListener() {} };
+global.location = { pathname: '/aktiesparekonto', search: '', hash: '' };
+global.history = { urls: [], replaceState(s, t, url) { this.urls.push(url); } };
 // capture the CSV export's blob content
 let csvText = '';
 global.Blob = function (parts) { this.parts = parts; };
@@ -151,5 +153,15 @@ try {
   check('interactions', false, e.stack.split('\n').slice(0, 3).join(' | '));
 }
 
-console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');
-process.exit(fails ? 1 : 0);
+// --- shareable URL (replaceState is debounced, so finish asynchronously)
+el('monthly').value = '5000'; el('monthly').fire('input');
+setTimeout(() => {
+  const last = () => global.history.urls[global.history.urls.length - 1] || '';
+  check('URL encodes only the changed field', last() === '/aktiesparekonto?monthly=5000', last());
+  el('reset').fire('click');
+  setTimeout(() => {
+    check('reset clears the URL', last() === '/aktiesparekonto', last());
+    console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');
+    process.exit(fails ? 1 : 0);
+  }, 300);
+}, 300);

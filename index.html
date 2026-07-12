@@ -488,6 +488,7 @@
       <p><strong>Gift?</strong> Fluebenet fordobler både loftet (I kan oprette hver jeres aktiesparekonto) og progressionsgrænsen (uudnyttet grundbeløb overføres automatisk mellem ægtefæller, der er samlevende ved årets udløb — personskattelovens § 8 a, stk. 4). Det forudsætter altså reelt, at I begge opretter konti fra nul og deler opsparingen ligeligt — hver konto har sit eget loft, så den enes ubrugte plads kan ikke bruges af den anden. Kurtagen regnes derfor også pr. konto: hver ASK-handel bogføres som to halvt så store ordrer, så et bindende kurtageminimum betales to gange (det frie depot regnes fortsat som ét).</p>
       <p><strong>Loft og grænser reguleres årligt.</strong> Både indskudsloftet og progressionsgrænsen følger personskattelovens § 20 (senest +3,9 % i 2025 og +4,8 % i 2026). Modellen fremskriver dem med samme redigerbare sats — standard 2 % p.a. Det allerede vedtagne ekstraløft af progressionsgrænsen fra 2027 er kodet ind som sit eget felt: 83.100 kr. i 2025-niveau svarer efter 2026-reguleringen på 4,8 % til 87.100 kr. i 2026-niveau, som fremskrives derfra med § 20-satsen. Grænsen antages fortsat reguleret i udtrækningsårene, og «Progressionsgrænse brugt af andet» (Avanceret) trækkes fra båndet i alle år (ved «Gift»: husstandens samlede beløb).</p>
       <p><strong>To måder at sælge ud på.</strong> Udtrækningen simuleres år for år: det endnu ikke solgte forbliver investeret, udlodder og beskattes undervejs — kontante udlodninger udbetales dog i stedet for at blive geninvesteret og indgår i årets udbetaling — og aktiesparekontoen beholdes tilsvarende investeret (fortsat 17 % lager) og udbetales over samme årrække. «Fast antal år» fordeler salget ligeligt over de valgte år; «Op til grænsen» sælger netop progressionsgrænsen i gevinst om året, så alt rammer den lave sats. Det frie depots grænsesalg definerer udbetalingstakten, og «Maksimér ASK» udbetaler nøjagtig de samme beløb i de samme år — først fra sit eget frie depot op til grænsen, resten fra aktiesparekontoen, som ingen progressionsgrænse har og derfor holdes længst muligt i den lave lagerbeskatning. Med ens pengestrømme kan totalerne sammenlignes direkte; ellers ville man lægge beløb modtaget i forskellige årtier sammen, som om de var samtidige. Kan grænsen ikke nå det hele inden for 30 år, tvangssælges resten i år 30 (delvist til høj sats), og værktøjet advarer. «Skattehøst» gør det samme undervejs i opsparingen: realisér gevinst op til grænsen hvert år og genkøb, så anskaffelsessummen trinnes op og slutskattens 42 %-del skrumper. Det er reelt frivillig lagerbeskatning — bare til 27 % i stedet for ASK'ens 17 % og med kurtage oveni — så det hjælper kun, når slutsalget ellers ville ramme den høje sats, og sjældent nok til at betale sig. Da «Op til grænsen» allerede realiserer op til grænsen hvert år, er skattehøst kun tilgængelig sammen med «Fast antal år». Praktisk detalje: Danmark har ingen egentlig wash-sale-regel, men genkøb <em>samme dag</em> risikerer at blive tilsidesat skattemæssigt (Den juridiske vejledning C.B.2.1.4.10) — vent mindst en handelsdag og handl til markedskurs.</p>
+      <p><strong>Del et scenarie.</strong> Dine ændringer lægges løbende i sidens adresse — kopiér linket, og modtageren ser præcis dit scenarie (praktisk, hvis du vil diskutere et resultat eller melde en fejl). Kun felter, der afviger fra standardværdierne, indgår, og «Nulstil» rydder adressen igen. Opdateres sidens standardværdier senere (fx nye årssatser), følger de ikke-låste felter i et gammelt link med de nye standarder.</p>
       <p><strong>Inflation rammer lager hårdere.</strong> Skatten beregnes af nominelle gevinster, så lagerbeskatningen tærer også på den inflationsskabte del af afkastet hvert år. Reale tal er nominelle beløb deflateret med din inflationsantagelse frem til hvert beløbs eget år.</p>
       <p><strong>Det nye regeringsudspil.</strong> Regeringsgrundlaget (juni 2026) vil hæve loftet til 500.000 kr. og opgøre det efter oprindeligt indskud frem for løbende værdi — en politisk målsætning, ikke vedtaget lov. Du kan tilnærme effekten ved at sætte <code>Indskudsloft = 500000</code> — men bemærk, at udspillet rummer mere end loftet (bl.a. en ændret loftsdefinition og ændringer af aktieindkomstbeskatningen), så ét felt er kun en grov tilnærmelse. Den varslede undersøgelse af en norsk-inspireret beskatning ved udtræk ville ændre selve lagerprincippet og er ikke modelleret.</p>
       <p><strong>Forenklinger.</strong> Deterministisk afkast — ingen volatilitet, så ASK'ens tabsfremførsel udløses ikke i standardscenariet; med udsving betaler ASK skat i gode år, mens tab kun fremføres, så fordelen bliver typisk lidt mindre end vist (en Monte Carlo-udgave er på ønskelisten). Skat betales af spanden selv og trækkes i modellen 31/12 — reelt hæves ASK-skatten først medio februar året efter og aktieskat via årsopgørelsen, så modellen er en anelse konservativ. Kurtage (procent med minimum, pr. marked: dansk børs for depotets fonde, Xetra for ASK'ens ETF) lægges på de aktive handler — skattehøst, ASK-finansiering og salgene under udtrækningen i begge spande — samt på løbende køb i det omfang, månedsopsparingen ikke dækker dem; geninvestering af udbytter i opsparingsårene regnes fortsat gratis (i praksis kan den ride med på månedsopsparingen eller et køb, du alligevel foretager; under udtrækningen udbetales kontante udbytter i stedet), og gevinst og kurtage på det lille salg, der finansierer skatten af teknisk udbytte, ignoreres. Realiserede kurstab i det frie depot modregnes i årets udbytter og gevinster og fremføres derefter til senere år; opgørelsen er årlig, så et tab realiseret i december modregnes også i skatten af forårets udbytter — det sker fx, når udlodningerne overstiger afkastet, så anskaffelsessummen vokser op over værdien. Fremført tab, der står ubrugt, når modellen slutter, regnes uden værdi — i virkeligheden kan det modregnes i din senere aktieindkomst fra noterede papirer. Modellens gyldighedsområde er fortsat deterministiske, ikke-negative markedsafkast. Modellen starter desuden fra nul: eksisterende beholdninger, gennemsnitskurser på tværs af depoter og allerede fremførte tab er ikke med. Skattestyrelsens positivliste opdateres årligt — ryger en ETF af listen, ændres dens beskatning uden for ASK. Personfradrag og modregning af afkast i offentlige ydelser — hvor ASK'en har en yderligere fordel, da dens afkast ikke tæller med — er ikke medregnet. Sammenligninger med pensionsordninger (alders-/ratepension) er uden for værktøjets scope.</p>
@@ -938,6 +939,7 @@
     lastR=R;
     renderAudit(R);
     renderChart(R, showReal);
+    updateUrl();
   }
 
   // ---------- wiring ----------
@@ -949,8 +951,13 @@
   $('married').addEventListener('change',render);
   $('harvest').addEventListener('change',render);
   $('redeposit').addEventListener('change',render);
-  $('dm_years').addEventListener('click',()=>{ drawMode='years'; $('dm_years').setAttribute('aria-pressed','true'); $('dm_kink').setAttribute('aria-pressed','false'); render(); });
-  $('dm_kink').addEventListener('click',()=>{ drawMode='kink'; $('dm_kink').setAttribute('aria-pressed','true'); $('dm_years').setAttribute('aria-pressed','false'); render(); });
+  function setDrawMode(m){
+    drawMode=m;
+    $('dm_years').setAttribute('aria-pressed', m==='years'?'true':'false');
+    $('dm_kink').setAttribute('aria-pressed', m==='kink'?'true':'false');
+  }
+  $('dm_years').addEventListener('click',()=>{ setDrawMode('years'); render(); });
+  $('dm_kink').addEventListener('click',()=>{ setDrawMode('kink'); render(); });
   function setMsMode(m){
     msMode=m;
     ['none','depot','both'].forEach(x=>$('ms_'+x).setAttribute('aria-pressed', x===m?'true':'false'));
@@ -1007,8 +1014,13 @@
     });
   });
 
-  $('seg_nom').addEventListener('click',()=>{ showReal=false; $('seg_nom').setAttribute('aria-pressed','true'); $('seg_real').setAttribute('aria-pressed','false'); render(); });
-  $('seg_real').addEventListener('click',()=>{ showReal=true; $('seg_real').setAttribute('aria-pressed','true'); $('seg_nom').setAttribute('aria-pressed','false'); render(); });
+  function setShowReal(b){
+    showReal=b;
+    $('seg_nom').setAttribute('aria-pressed', b?'false':'true');
+    $('seg_real').setAttribute('aria-pressed', b?'true':'false');
+  }
+  $('seg_nom').addEventListener('click',()=>{ setShowReal(false); render(); });
+  $('seg_real').addEventListener('click',()=>{ setShowReal(true); render(); });
 
   $('reset').addEventListener('click',()=>{
     for(const k in DEFAULTS){
@@ -1016,8 +1028,7 @@
       if(el.type==='checkbox') el.checked=DEFAULTS[k]; else el.value=DEFAULTS[k];
       const r=$(k+'_r'); if(r) r.value=DEFAULTS[k];
     }
-    drawMode='years'; $('dm_years').setAttribute('aria-pressed','true'); $('dm_kink').setAttribute('aria-pressed','false');
-    setDivMode('tech'); setMsMode('depot');
+    setDrawMode('years'); setDivMode('tech'); setMsMode('depot');
     activeFund={ask:'WEBN', tax:'STIIAM', fee:'Nordnet'}; updateFundChips();
     render();
   });
@@ -1029,6 +1040,69 @@
   cb.addEventListener('touchmove',e=>{ if(e.touches[0]) onHover(e.touches[0]); },{passive:true});
   window.addEventListener('resize',()=>render());
 
+  // ---------- shareable URL ----------
+  // The current scenario lives in the query string, but only the fields that
+  // differ from the defaults — the address stays clean until something is
+  // changed, and a reset clears it again. A shared link therefore pins
+  // exactly what its sender touched; everything else follows the page's
+  // current defaults. Only the query string is written: the path is left
+  // untouched, so the with/without-trailing-slash hosting (see the sim.js
+  // loader above) is unaffected.
+  const MODE_DEFAULTS={dm:'years', dv:'tech', ms:'depot', vis:'nom'};
+  function urlQuery(){
+    const q=[];
+    for(const k in DEFAULTS){
+      const el=$(k); if(!el) continue;
+      if(el.type==='checkbox'){ if(el.checked!==DEFAULTS[k]) q.push(k+'='+(el.checked?1:0)); }
+      else if(parseFloat(el.value)!==DEFAULTS[k]) q.push(k+'='+encodeURIComponent(el.value));
+    }
+    const modes={dm:drawMode, dv:divMode, ms:msMode, vis:showReal?'real':'nom'};
+    for(const k in modes) if(modes[k]!==MODE_DEFAULTS[k]) q.push(k+'='+modes[k]);
+    return q.join('&');
+  }
+  let urlTimer=null;
+  function updateUrl(){
+    // debounced: browsers rate-limit replaceState, and sliders fire fast
+    clearTimeout(urlTimer);
+    urlTimer=setTimeout(()=>{
+      const qs=urlQuery();
+      try{ history.replaceState(null, '', location.pathname+(qs?'?'+qs:'')+location.hash); }catch(e){}
+    },250);
+  }
+  // after loading a link the fund chips must reflect the loaded values: a
+  // chip is active only if every one of its fields still matches its preset
+  function syncFundChips(){
+    for(const group in FUNDS){
+      activeFund[group]=null;
+      for(const name in FUNDS[group].presets){
+        const p=FUNDS[group].presets[name];
+        let ok=true;
+        for(const f in p){
+          if(f==='divMode'){ if(divMode!==p[f]) ok=false; }
+          else if(parseFloat($(f).value)!==parseFloat(p[f])) ok=false;
+        }
+        if(ok){ activeFund[group]=name; break; }
+      }
+    }
+  }
+  function applyUrl(){
+    let q;
+    try{ q=new URLSearchParams(location.search); }catch(e){ return; }
+    q.forEach((val,k)=>{
+      if(k==='dm'){ if(val==='years'||val==='kink') setDrawMode(val); }
+      else if(k==='dv'){ if(val==='tech'||val==='cash') setDivMode(val); }
+      else if(k==='ms'){ if(val==='none'||val==='depot'||val==='both') setMsMode(val); }
+      else if(k==='vis'){ setShowReal(val==='real'); }
+      else if(k in DEFAULTS){
+        const el=$(k); if(!el) return;
+        if(el.type==='checkbox') el.checked = val==='1';
+        else { el.value=val; const r=$(k+'_r'); if(r) r.value=val; }
+      }
+    });
+    syncFundChips();
+  }
+
+  applyUrl();
   updateFundChips();
   render();
 })();
