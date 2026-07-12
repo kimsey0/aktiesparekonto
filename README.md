@@ -11,14 +11,19 @@ eventually sell out.
 
 The model simulates month by month with annual tax settlement, and the final
 drawdown year by year: whatever is not yet sold stays invested, keeps
-distributing, and is taxed along the way (the ASK is withdrawn in parallel over
-the same years), so multi-year sale strategies are compared on equal cash-flow
-timing. Realised losses in the taxable account are netted against the year's
-dividends and gains and carried forward, mirroring the source-limited loss
-rules for listed share-based funds (carry left unused when the model ends is
-counted as worthless). In "up to the threshold" mode the strategy that needs the longest
-band-limited exit sets a common sale window for both (capped at 30 years, with
-a flagged forced sale of any remainder). The chart plots after-tax wealth if
+distributing, and is taxed along the way — though cash distributions are paid
+out during the drawdown (counting toward the year's withdrawal) rather than
+reinvested. In "fixed number of years" mode both
+strategies (the ASK included) amortise evenly over the same years. In "up to
+the threshold" mode the taxable-only strategy's band-limited sales define the
+payout path (capped at 30 years, with a flagged forced sale of any remainder),
+and the ASK strategy delivers exactly the same net cash in the same years —
+funded from its own taxable account first, within the band, topped up from the
+ASK — so the two strategies are compared at identical cash flows and differ
+only in what remains invested at the end. Realised losses in the taxable
+account are netted against the year's dividends and gains and carried forward,
+mirroring the source-limited loss rules for listed share-based funds (carry
+left unused when the model ends is counted as worthless). The chart plots after-tax wealth if
 everything were sold in a given year; the chosen plan's payout path is drawn
 separately from the horizon onwards. Every assumption is an editable input,
 and the methodology — including the deliberate simplifications — is documented

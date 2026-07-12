@@ -72,18 +72,6 @@ function check(name, got, want, tol = 0.01) {
   check('T4e kink window capped at 30 years', d4.years, 30, 0);
 }
 
-// T4g: a kink bucket with band slack spreads evenly over a given common window
-// instead of exiting early. 100k (basis 90k), 10% p.a., window 2 years:
-// year 1 sells 50,000 (gain 5,000 -> tax 1,350); the rest grows to 55,000
-// (gain 10,000) and is sold in year 2 (tax 2,700). Both years fit the band.
-{
-  const d = drawdown(100000, 90000, P({ drawMode: 'kink', gross: 0.10 }), FLAT, L(), 2);
-  check('T4g slack bucket spreads into the window', d.after, 48650 + 52300);
-  check('T4g tax', d.tax, 1350 + 2700);
-  check('T4g years', d.years, 2, 0);
-  check('T4g not forced (band fits)', d.forced ? 1 : 0, 0, 0);
-}
-
 // T4f: with growth the remaining slices keep compounding and each year's sale
 // is taxed on its own realised gain. 100k (basis 50k), 10% p.a., 2 years:
 // year 1 sells 50,000 (gain 25,000 -> tax 6,750); the remaining 50,000 (basis
@@ -353,6 +341,64 @@ function check(name, got, want, tol = 0.01) {
   check('T23 single pays one minimum per trade', R1.A_after, 12000 - 12 * 25 - 25);
   check('T23 married pays two minimums per trade', R2.A_after, 12000 - 12 * 50 - 50);
   check('T23 depot fees unchanged by married', R2.B_after, R1.B_after);
+}
+
+// T24: in kink mode strategy B's band-fill exit defines the payout path and
+// strategy A delivers the same net cash each year, funded from its overflow
+// depot first and the ASK for the rest. 1M lump at 10%, 1 accumulation year,
+// no fees/FX, huge ceiling (so A is pure ASK): the ASK ends the year at
+// 1,100,000 - 17,000 = 1,083,000. B's depot (gain 100,000 > the 79,400 band)
+// needs 2 band years: year 1 sells 873,400 filling the band (tax 21,438,
+// net 851,962); the rest grows to 249,260 and fits the band in year 2
+// (tax 11,680.20, net 237,579.80). A matches: year 1 withdraws 851,962 from
+// the ASK (tax-free); the remaining 231,038 grows to 254,141.80, pays 17% of
+// 23,103.80 = 3,927.65, and is sold whole in year 2 for 250,214.15.
+{
+  const R = simulate(P({ initial: 1000000, horizon: 1, gross: 0.10, drawMode: 'kink' }));
+  check('T24 window set by the depot strategy', R.B_years, 2, 0);
+  check('T24 A pays out exactly B\'s first-year cash', R.drawSeries[0].cashA, R.drawSeries[0].cashB);
+  check('T24 first-year payout is B\'s band-fill net', R.drawSeries[0].cashB, 851962);
+  check('T24 A total (matched payout + ASK remainder)', R.A_after, 851962 + 250214.15);
+  check('T24 B total', R.B_after, 851962 + 237579.80);
+}
+
+// T24b: the matched payouts hold in a full scenario — every window year except
+// the final one pays the two strategies identical net cash, and the overflow
+// depot never realises beyond the band (the ASK covers the shortfall). Holds
+// for a technical fund and for a cash-distributing one (whose paid-out
+// dividends count toward the match on both sides).
+{
+  const D = { initial: 1000000, monthly: 4000, horizon: 20, gross: 0.07, infl: 0.02,
+    askTer: 0.0007, askForex: 0.0025, askCeiling: 174200, reg: 0.02, threshold27: 87100,
+    taxTer: 0.003, feePct: 0.001, feeMin: 25,
+    askFeePct: 0.0015, askFeeMin: 25, msAsk: false, drawMode: 'kink' };
+  for (const [divMode, taxDiv] of [['tech', 0.014], ['cash', 0.032]]) {
+    const R = simulate(P(Object.assign({}, D, { divMode, taxDiv })));
+    let maxDiff = 0;
+    for (let k = 0; k < R.drawSeries.length - 1; k++)
+      maxDiff = Math.max(maxDiff, Math.abs(R.drawSeries[k].cashA - R.drawSeries[k].cashB));
+    check(`T24b interim payouts identical (${divMode})`, maxDiff, 0, 1);
+    check(`T24b payout path converges on the A total (${divMode})`, R.drawSeries[R.drawSeries.length - 1].cashA, R.A_after, 0.5);
+  }
+}
+
+// T25: during the drawdown, cash distributions are paid out instead of
+// reinvested. 1M with basis 0, 10% cash distribution, 0% return, flat band:
+// year 0 band-fills (sell 79,400, tax 21,438, net 57,962; v=920,600). Year 1:
+// dividend 92,060 taxed 21,438 + 12,660x42% = 26,755.20 -> 65,304.80 paid
+// out, v=828,540; the dividend overfills the band, so nothing is sold. Year
+// 2: dividend 82,854, tax 21,438 + 3,454x42% = 22,888.68 -> 59,965.32 paid
+// out. The payouts shrink the depot, so from year 3 the dividend (74,568.60)
+// fits the band again and the reopened slack is sold on top — dividend and
+// sale together fill the band exactly: 79,400 x 0.73 = 57,962. The depot
+// therefore pays itself out well before the 30-year cap, no forced sale.
+{
+  const d = drawdown(1000000, 0, P({ drawMode: 'kink', gross: 0, taxDiv: 0.10, divMode: 'cash' }), FLAT, L());
+  check('T25 year-0 band fill', d.wd[0].net, 57962);
+  check('T25 year-1 payout is the net dividend', d.wd[1].net, 65304.80);
+  check('T25 year-2 payout is the net dividend', d.wd[2].net, 59965.32);
+  check('T25 year-3 dividend + reopened band sale fill the band', d.wd[3].net, 57962);
+  check('T25 no forced sale', d.forced ? 1 : 0, 0, 0);
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');
