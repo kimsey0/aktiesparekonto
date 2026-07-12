@@ -185,6 +185,21 @@
   table.bd tr.tot td{background:#fff; font-weight:600; color:var(--ink)}
   table.bd tr.tot td:first-child{color:var(--ink)}
   .hd-swatch{display:inline-flex; align-items:center; gap:7px; justify-content:flex-end}
+  /* ---------- year-by-year audit tables ---------- */
+  details.audit{margin-top:16px; background:var(--surface); border:1px solid var(--hair); border-radius:var(--r); padding:12px 16px 16px}
+  details.audit > summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px}
+  details.audit > summary::-webkit-details-marker{display:none}
+  details.audit > summary .gt{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:500}
+  details.audit > summary .caret{font-family:var(--mono); font-size:10px; color:var(--faint)}
+  details.audit > summary .caret::before{content:'▸'}
+  details.audit[open] > summary .caret::before{content:'▾'}
+  details.audit .lead{margin-top:10px}
+  details.audit h3{font-family:var(--display); font-weight:600; font-size:14.5px; letter-spacing:-.01em; margin:16px 0 8px}
+  .tscroll{overflow-x:auto}
+  table.audit-t{font-size:12px; white-space:nowrap; width:auto; min-width:100%}
+  table.audit-t th, table.audit-t td{padding:6px 9px}
+  table.audit-t thead th.grp{text-align:center}
+  table.audit-t th.gs, table.audit-t td.gs{border-left:1px solid var(--hair)}
   /* ---------- notes ---------- */
   .notes{margin-top:30px; border-top:1px solid var(--hair); padding-top:22px}
   .notes .cols{columns:2; column-gap:34px}
@@ -444,6 +459,16 @@
       <tbody id="bdbody"></tbody>
     </table>
     <p style="font-size:12px;color:var(--muted);margin:12px 0 0" id="splitnote"></p>
+
+    <details class="audit" id="audit">
+      <summary><span class="gt">År for år — alle mellemregninger</span><span class="caret"></span></summary>
+      <p class="lead">Hver række er ét år i modellen, alle beløb i nominelle kroner, afrundet (ved «Gift»: husstandens samlede tal; «–» er nul). Negativ skat er årets modregning af tidligere udbytteskat eller tab. «Aktieindkomst» er årets bogførte skattepligtige aktieindkomst — udbytter/minimumsindkomst plus realiserede gevinster minus realiserede tab — som beskattes med lav sats op til grænsen; «Tab fremført» er saldoen, der tages med ind i det følgende år. «Alt solgt nu» er kurvernes punkter: formuen efter skat, hvis alt blev solgt i det pågældende år.</p>
+      <h3>Opsparingsårene</h3>
+      <div class="tscroll"><table class="bd audit-t" id="audit_save"><caption class="vh">Opsparingsårene år for år: indskud, saldi, skat og omkostninger pr. strategi</caption></table></div>
+      <h3>Udtrækningen</h3>
+      <p class="lead">Udtrækningen følger din valgte salgsstrategi fra horisonten. «Udbetalt» er årets nettoudbetaling (inkl. udbetalte kontantudbytter), «Solgt» er bruttosalget bag den, og «ultimo» er, hvad der stadig står investeret ved årets udgang.</p>
+      <div class="tscroll"><table class="bd audit-t" id="audit_draw"><caption class="vh">Udtrækningen år for år: udbetalinger, salg, skat og restbeholdninger pr. strategi</caption></table></div>
+    </details>
   </section>
 
   <!-- notes -->
@@ -702,6 +727,89 @@
   }
   function offHover(){ const t=$('tip'); if(t)t.style.opacity=0; const g=document.getElementById('hover'); if(g)g.innerHTML=''; }
 
+  // ---------- year-by-year audit tables ----------
+  // Column definitions shared by the HTML tables and the CSV export: group
+  // band, header, and a getter. The tables show whole kroner; the CSV keeps
+  // øre precision so every line can be re-computed in a spreadsheet.
+  const AUD_SAVE=[
+    {g:'', t:'År', f:s=>s.year},
+    {g:'', t:'Grænse', f:s=>s.detail.thr},
+    {g:'Maksimér ASK', t:'Indskud ASK', f:s=>s.detail.contribAsk},
+    {g:'Maksimér ASK', t:'Flyttet depot→ASK', f:s=>s.detail.refill},
+    {g:'Maksimér ASK', t:'Indskud depot', f:s=>s.detail.contribOv},
+    {g:'Maksimér ASK', t:'ASK ultimo', f:s=>s.detail.askV},
+    {g:'Maksimér ASK', t:'Lagerskat', f:s=>s.detail.askTax},
+    {g:'Maksimér ASK', t:'Kurtage+veksling ASK', f:s=>s.detail.askFee+s.detail.askFx},
+    {g:'Maksimér ASK', t:'ASK-tab fremført', f:s=>s.detail.askCarry},
+    {g:'Maksimér ASK', t:'Depot ultimo', f:s=>s.detail.ovV},
+    {g:'Maksimér ASK', t:'Anskaffelsessum', f:s=>s.detail.ovBasis},
+    {g:'Maksimér ASK', t:'Aktieindkomst', f:s=>s.detail.ovIncome},
+    {g:'Maksimér ASK', t:'Skat', f:s=>s.detail.ovTax},
+    {g:'Maksimér ASK', t:'Kurtage', f:s=>s.detail.ovFee},
+    {g:'Maksimér ASK', t:'Tab fremført', f:s=>s.detail.ovCarry},
+    {g:'Kun frit depot', t:'Depot ultimo', f:s=>s.detail.allV},
+    {g:'Kun frit depot', t:'Anskaffelsessum', f:s=>s.detail.allBasis},
+    {g:'Kun frit depot', t:'Aktieindkomst', f:s=>s.detail.allIncome},
+    {g:'Kun frit depot', t:'Skat', f:s=>s.detail.allTax},
+    {g:'Kun frit depot', t:'Kurtage', f:s=>s.detail.allFee},
+    {g:'Kun frit depot', t:'Tab fremført', f:s=>s.detail.allCarry},
+    {g:'Alt solgt nu', t:'Maksimér ASK', f:s=>s.A},
+    {g:'Alt solgt nu', t:'Kun frit depot', f:s=>s.B}
+  ];
+  // drawdown rows: r.a = strategy A's taxable depot, r.s = its ASK, r.b = strategy B
+  const n0=x=>x||0;
+  const AUD_DRAW=[
+    {g:'', t:'Udtrækningsår', f:r=>r.k+1},
+    {g:'', t:'Grænse', f:r=>n0(r.b.thr||r.a.thr)},
+    {g:'Maksimér ASK', t:'Udbetalt fra depot', f:r=>n0(r.a.net)},
+    {g:'Maksimér ASK', t:'Udbetalt fra ASK', f:r=>n0(r.s.net)},
+    {g:'Maksimér ASK', t:'Udlodning (brutto)', f:r=>n0(r.a.div)},
+    {g:'Maksimér ASK', t:'Solgt depot', f:r=>n0(r.a.sold)},
+    {g:'Maksimér ASK', t:'Solgt ASK', f:r=>n0(r.s.sold)},
+    {g:'Maksimér ASK', t:'Skat depot', f:r=>n0(r.a.tax)},
+    {g:'Maksimér ASK', t:'Lagerskat ASK', f:r=>n0(r.s.tax)},
+    {g:'Maksimér ASK', t:'Kurtage+veksling', f:r=>n0(r.a.fee)+n0(r.s.fee)+n0(r.s.fx)},
+    {g:'Maksimér ASK', t:'Aktieindkomst', f:r=>n0(r.a.income)},
+    {g:'Maksimér ASK', t:'Depot ultimo', f:r=>n0(r.a.v)},
+    {g:'Maksimér ASK', t:'ASK ultimo', f:r=>n0(r.s.v)},
+    {g:'Kun frit depot', t:'Udbetalt', f:r=>n0(r.b.net)},
+    {g:'Kun frit depot', t:'Udlodning (brutto)', f:r=>n0(r.b.div)},
+    {g:'Kun frit depot', t:'Solgt', f:r=>n0(r.b.sold)},
+    {g:'Kun frit depot', t:'Skat', f:r=>n0(r.b.tax)},
+    {g:'Kun frit depot', t:'Kurtage', f:r=>n0(r.b.fee)},
+    {g:'Kun frit depot', t:'Aktieindkomst', f:r=>n0(r.b.income)},
+    {g:'Kun frit depot', t:'Depot ultimo', f:r=>n0(r.b.v)}
+  ];
+  function auditTable(elId, cols, rows){
+    let h1='', h2='';
+    for(let i=0;i<cols.length;i++){
+      const c=cols[i], gs=(i>0&&cols[i-1].g!==c.g)?' class="gs"':'';
+      if(!c.g){ h1+=`<th rowspan="2"${gs}>${c.t}</th>`; continue; }
+      if(i===0 || cols[i-1].g!==c.g){
+        let span=1; while(i+span<cols.length && cols[i+span].g===c.g) span++;
+        const col=c.g==='Maksimér ASK'?' colA':c.g==='Kun frit depot'?' colB':'';
+        h1+=`<th colspan="${span}" class="grp gs${col}">${c.g}</th>`;
+      }
+      h2+=`<th${gs}>${c.t}</th>`;
+    }
+    // whole kroner; zeros render as '–' so the sparse columns stay readable
+    const fm=x=> typeof x!=='number' ? x : (Math.round(x)===0 ? '–' : nf0.format(Math.round(x)));
+    const body=rows.map(r=>'<tr>'+cols.map((c,i)=>
+      `<td${(i>0&&cols[i-1].g!==c.g)?' class="gs"':''}>${fm(c.f(r))}</td>`
+    ).join('')+'</tr>').join('');
+    $(elId).innerHTML=`<thead><tr>${h1}</tr><tr>${h2}</tr></thead><tbody>${body}</tbody>`;
+  }
+  function drawRows(R){
+    const len=Math.max(R.plan.dOv.wd.length, R.plan.dAsk.wd.length, R.plan.dAll.wd.length, 1);
+    const rows=[];
+    for(let k=0;k<len;k++) rows.push({k, a:R.plan.dOv.wd[k]||{}, s:R.plan.dAsk.wd[k]||{}, b:R.plan.dAll.wd[k]||{}});
+    return rows;
+  }
+  function renderAudit(R){
+    auditTable('audit_save', AUD_SAVE, R.series);
+    auditTable('audit_draw', AUD_DRAW, drawRows(R));
+  }
+
   // ---------- render everything ----------
   let showReal=false;
   let drawMode='years';
@@ -790,6 +898,7 @@
       (R.firstOverflow ? `Loftet er fyldt op fra år ${R.firstOverflow}, hvorefter ny opsparing ryger i det frie depot.` :
                          `Loftet bliver ikke fyldt op inden for horisonten med de valgte indbetalinger.`);
 
+    renderAudit(R);
     renderChart(R, showReal);
   }
 

@@ -69,6 +69,11 @@ check('no drawdown wedge at 1-year sale', !/dwCashA/.test(el('chart').innerHTML)
 check('table rows', (el('bdbody').innerHTML.match(/<tr/g) || []).length === 10);
 check('reconciliation rows present', /Afkast før skat og omkostninger/.test(el('bdbody').innerHTML) &&
       /= Udbetalt efter skat/.test(el('bdbody').innerHTML));
+// audit tables: 2 header rows + one row per accumulation year (default horizon 20)
+check('audit table renders one row per year', (el('audit_save').innerHTML.match(/<tr>/g) || []).length === 22,
+      String((el('audit_save').innerHTML.match(/<tr>/g) || []).length));
+check('audit drawdown table renders', /Udtrækningsår/.test(el('audit_draw').innerHTML) &&
+      /<td/.test(el('audit_draw').innerHTML));
 const A0 = num(el('A_big').textContent);
 
 try {

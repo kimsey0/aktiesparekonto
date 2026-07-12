@@ -86,7 +86,11 @@
   // mode this function runs strategy B's exit, whose payout path strategy A
   // then replicates (see matchedDrawdown).
   // Returns nominal totals plus the per-year net withdrawals (wd) so the
-  // caller can deflate each one by its own payout year.
+  // caller can deflate each one by its own payout year. Each wd entry also
+  // carries the year's audit trail — gross sale, distribution, tax (signed;
+  // negative = refund), fee, the ledger's booked share income against the
+  // year's threshold, and the end-of-year value/basis — for the page's
+  // year-by-year table.
   function drawdown(value, basis, P, thrOf, L0){
     const out={tax:0, fee:0, years:0, after:0, wd:[], forced:false};
     if(value<=1){ out.after=Math.max(0,value); return out; }
@@ -96,7 +100,7 @@
     let v=value, b=basis;
     let L=Object.assign({}, L0, {thr:thrOf(0)});
     for(let k=0; k<100; k++){
-      let divNet=0;
+      let divNet=0, yDiv=0, yTax=0, yFee=0, ySold=0;
       if(k>0){
         L=newLedger(thrOf(k), P.threshUsed, closeYear(L));
         // distributions accrue to the holdings at the start of the year
@@ -107,7 +111,7 @@
           const dt=settle(L, div, P);
           if(P.divMode==='tech'){ b+=div; b-=dt*(b/v); v-=dt; }
           else { v-=div; divNet=div-dt; }   // paid out, not reinvested
-          out.tax+=dt;
+          out.tax+=dt; yDiv=div; yTax+=dt;
         }
       }
       const gain=v-b;
@@ -134,6 +138,7 @@
         net+=saleNet;
         b-=sell*(b/v); v-=sell;
         out.tax+=tax; out.fee+=fee; out.after+=saleNet;
+        ySold=sell; yTax+=tax; yFee=fee;
       }
       // abort = what the remainder would net, sold as a lump against the next
       // year's fresh band and carry (approximate; feeds the chart's wealth line)
@@ -142,7 +147,8 @@
         const af=Math.max(P.feePct*v, P.feeMin);
         abort=Math.max(0, v - bracketTax((v-b)-af-closeYear(L), thrOf(k+1), P.threshUsed, P.taxLow, P.taxHigh) - af);
       }
-      out.wd.push({net, k, abort});
+      out.wd.push({net, k, abort, sold:ySold, div:yDiv, tax:yTax, fee:yFee,
+                   income:L.income, thr:L.thr, v:Math.max(0,v), basis:Math.max(0,b)});
       out.years=k+1;
       if(v<=1) break;
     }
@@ -159,12 +165,13 @@
     if(value<=1){ out.after=Math.max(0,value); return out; }
     let v=value;
     for(let k=0; k<N && v>1; k++){
+      let yTax=0;
       if(k>0){
         const yStart=v;
         v*=(1+Math.max(-0.99, P.gross-P.askTer));
         let tg=v-yStart-carry, tax=0;
         if(tg>0){ tax=tg*P.askTax; carry=0; } else carry=-tg;
-        v-=tax; out.tax+=tax;
+        v-=tax; out.tax+=tax; yTax=tax;
       }
       const sell = k>=N-1 ? v : v/(N-k);
       const fee=askFee(sell, P);
@@ -175,7 +182,8 @@
       const abort = v>1
         ? Math.max(0, (v-askFee(v, P))*(1-P.askForex))
         : Math.max(0, v);
-      out.fee+=fee; out.fx+=fx; out.after+=net; out.wd.push({net, k, abort});
+      out.fee+=fee; out.fx+=fx; out.after+=net;
+      out.wd.push({net, k, abort, sold:sell, tax:yTax, fee, fx, v:Math.max(0,v), carry});
       out.years=k+1;
     }
     return out;
@@ -203,6 +211,7 @@
     const r=Math.max(-0.99, P.gross-P.taxTer);
     for(let k=0;k<N;k++){
       let divNet=0;
+      let yOvDiv=0, yOvTax=0, yOvFee=0, yOvSold=0, yAskTax=0, yAskFee=0, yAskFx=0, yAskSold=0;
       if(k>0){
         // same yearly bookkeeping as drawdown (depot) and askDrawdown (ASK)
         L=newLedger(thrOf(k), P.threshUsed, closeYear(L));
@@ -214,7 +223,7 @@
             const dt=settle(L, div, P);
             if(P.divMode==='tech'){ b+=div; b-=dt*(b/v); v-=dt; }
             else { v-=div; divNet=div-dt; }   // paid out, not reinvested
-            oOv.tax+=dt;
+            oOv.tax+=dt; yOvDiv=div; yOvTax+=dt;
           }
         }
         if(av>1){
@@ -222,7 +231,7 @@
           av*=(1+Math.max(-0.99, P.gross-P.askTer));
           let tg=av-yStart-carry, tax=0;
           if(tg>0){ tax=tg*P.askTax; carry=0; } else carry=-tg;
-          av-=tax; oAsk.tax+=tax;
+          av-=tax; oAsk.tax+=tax; yAskTax=tax;
         }
       }
       let netOv=divNet, netAsk=0;
@@ -238,6 +247,7 @@
           netOv+=saleNet;
           if(gain>band) oOv.forced=true;
           oOv.tax+=tax; oOv.fee+=fee; oOv.after+=saleNet;
+          yOvSold=v; yOvTax+=tax; yOvFee=fee;
           v=0; b=0;
         }
         if(av>1){
@@ -245,6 +255,7 @@
           const fx=Math.max(0, av-fee)*P.askForex;
           netAsk=Math.max(0, av-fee-fx);
           oAsk.fee+=fee; oAsk.fx+=fx; oAsk.after+=netAsk;
+          yAskSold=av; yAskFee=fee; yAskFx=fx;
           av=0;
         }
       } else {
@@ -264,6 +275,7 @@
               netOv+=saleNet;
               b-=gross*(b/v); v-=gross;
               oOv.tax+=tax; oOv.fee+=fee; oOv.after+=saleNet;
+              yOvSold=gross; yOvTax+=tax; yOvFee=fee;
             }
           }
           const short=target-netOv;
@@ -278,6 +290,7 @@
             carry+=g-netAsk;   // costs paid inside the account stay deductible
             av-=g;
             oAsk.fee+=fee; oAsk.fx+=fx; oAsk.after+=netAsk;
+            yAskSold=g; yAskFee=fee; yAskFx=fx;
           }
         }
       }
@@ -289,8 +302,10 @@
         abortOv=Math.max(0, v - bracketTax((v-b)-af-closeYear(L), thrOf(k+1), P.threshUsed, P.taxLow, P.taxHigh) - af);
       }
       const abortAsk = av>1 ? Math.max(0,(av-askFee(av,P))*(1-P.askForex)) : Math.max(0,av);
-      oOv.wd.push({net:netOv, k, abort:abortOv});
-      oAsk.wd.push({net:netAsk, k, abort:abortAsk});
+      oOv.wd.push({net:netOv, k, abort:abortOv, sold:yOvSold, div:yOvDiv, tax:yOvTax, fee:yOvFee,
+                   income:L.income, thr:L.thr, v:Math.max(0,v), basis:Math.max(0,b)});
+      oAsk.wd.push({net:netAsk, k, abort:abortAsk, sold:yAskSold, tax:yAskTax, fee:yAskFee, fx:yAskFx,
+                    v:Math.max(0,av), carry});
       oOv.years=k+1; oAsk.years=k+1;
     }
     return {dOv:oOv, dAsk:oAsk};
@@ -315,6 +330,9 @@
     let ov ={v:0,basis:0,divBase:0,led:null,taxCum:0,feeCum:0};   // overflow taxable (strategy A)
     let all={v:0,basis:0,divBase:0,led:null,taxCum:0,feeCum:0};   // all taxable (strategy B)
     let budget=0, firstOverflow=null, fin=null;
+    // year-start snapshot of the cumulative counters, so each chart point can
+    // report the year's own contributions, taxes and fees (the audit table)
+    let snap=null;
     const series=[];
     // the chart's curves show wealth if everything were sold within the given
     // year (one lump per bucket); P1 prices that instant exit
@@ -383,6 +401,9 @@
         // which may always be re-deposited (aktiesparekontoloven § 9, stk. 2).
         budget=Math.max(0,ceiling-(ask.v+ask.taxLast))+ask.taxLast;
         ask.yStart=ask.v; ask.contribYr=0;
+        snap={contribAsk:0, contribOv:0, refill:0,
+              askFee:ask.feeCum, askFx:ask.fxCum,
+              ovTax:ov.taxCum, ovFee:ov.feeCum, allTax:all.taxCum, allFee:all.feeCum};
         // fresh share-income year; unused losses carry forward
         ov.led=newLedger(thrY, P.threshUsed, ov.led?closeYear(ov.led):0);
         all.led=newLedger(thrY, P.threshUsed, all.led?closeYear(all.led):0);
@@ -391,6 +412,7 @@
       let toAsk=Math.min(budget,contrib); budget-=toAsk;
       let toOv=contrib-toAsk;
       if(toOv>1 && firstOverflow===null) firstOverflow=y+1;
+      snap.contribAsk+=toAsk; snap.contribOv+=toOv;
 
       // buy-side kurtage: recurring buys through månedsopsparing (P.msAsk/P.msDepot)
       // are commission-free; without it every buy pays the normal trading fee —
@@ -415,7 +437,7 @@
         const target=Math.max(0, budget-11*P.monthly);
         if(P.redeposit && target>1 && ov.v>1){
           const f=fundAsk(target, ov.led);
-          if(f) ask.contribYr+=f.deposited;
+          if(f){ ask.contribYr+=f.deposited; snap.refill+=f.deposited; }
         }
         // dividend entitlement snapshot (after the January contribution/refill)
         ov.divBase=ov.v; all.divBase=all.v;
@@ -433,7 +455,7 @@
         const shortfall=Math.max(0, budget);
         if(P.redeposit && shortfall>1 && ov.v>1){
           const f=fundAsk(shortfall, ov.led);
-          if(f) ask.contribYr+=f.deposited;
+          if(f){ ask.contribYr+=f.deposited; snap.refill+=f.deposited; }
         }
 
         // ASK mark-to-market tax (withdrawn from the account)
@@ -457,7 +479,22 @@
         series.push({year:y+1,
           A:dAsk1.after+dOv1.after, B:dAll1.after,
           Areal:(dAsk1.after+dOv1.after)/deflY, Breal:dAll1.after/deflY,
-          ask:dAsk1.after, askReal:dAsk1.after/deflY});
+          ask:dAsk1.after, askReal:dAsk1.after/deflY,
+          // realisation tax the instant sale would trigger (the tooltip's
+          // "latent tax" line; the ASK has none — its gains are already taxed)
+          latB:dAll1.tax, latBreal:dAll1.tax/deflY,
+          // the year's own audit trail: flows, 31 Dec balances, this year's
+          // taxes/fees/carry per bucket — all nominal, household totals
+          detail:{
+            contribAsk:snap.contribAsk, contribOv:snap.contribOv, refill:snap.refill,
+            thr:thrY,
+            askV:ask.v, askTax:lagerTax, askCarry:ask.carry,
+            askFee:ask.feeCum-snap.askFee, askFx:ask.fxCum-snap.askFx,
+            ovV:ov.v, ovBasis:ov.basis, ovIncome:ov.led.income,
+            ovTax:ov.taxCum-snap.ovTax, ovFee:ov.feeCum-snap.ovFee, ovCarry:closeYear(ov.led),
+            allV:all.v, allBasis:all.basis, allIncome:all.led.income,
+            allTax:all.taxCum-snap.allTax, allFee:all.feeCum-snap.allFee, allCarry:closeYear(all.led)
+          }});
 
         if(lastYear){
           // the chosen strategy, simulated once from the horizon (the headline
@@ -505,6 +542,8 @@
     }
     return {
       series, firstOverflow, contributed, drawSeries,
+      // the chosen plan's raw per-year drawdowns, for the audit table
+      plan:{dOv:fin.dOv, dAsk:fin.dAsk, dAll:fin.dAll},
       A_after: fin.A, B_after: fin.B,
       A_real: fin.Areal, B_real: fin.Breal,
       askFinal: fin.dAsk.after, overflowFinal: fin.dOv.after,

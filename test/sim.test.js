@@ -401,5 +401,64 @@ function check(name, got, want, tol = 0.01) {
   check('T25 no forced sale', d.forced ? 1 : 0, 0, 0);
 }
 
+// T26: the audit fields on the drawdown's wd entries. Same scenario as T4f:
+// year 1 sells 50,000 of 100,000 (gain 25,000, tax 6,750), the rest grows to
+// 55,000 (basis 25,000) and is sold whole in year 2 (gain 30,000, tax 8,100).
+{
+  const d = drawdown(100000, 50000, P({ liqYears: 2, gross: 0.10 }), FLAT, L());
+  check('T26 year-1 gross sale', d.wd[0].sold, 50000);
+  check('T26 year-1 tax', d.wd[0].tax, 6750);
+  check('T26 year-1 end value (grows to 55,000 only next year)', d.wd[0].v, 50000);
+  check('T26 year-1 end basis', d.wd[0].basis, 25000);
+  check('T26 year-1 booked income vs threshold', d.wd[0].income, 25000);
+  check('T26 threshold recorded', d.wd[0].thr, 79400);
+  check('T26 year-2 tax', d.wd[1].tax, 8100);
+  check('T26 per-year taxes sum to the total', d.wd.reduce((s, w) => s + w.tax, 0), d.tax);
+}
+
+// T26b: the ASK drawdown's audit fields. 100,000 at 10% over 2 years: year 1
+// sells half; the rest grows to 55,000 and pays 17% of the 5,000 gain (850).
+{
+  const d = askDrawdown(100000, 0, P({ gross: 0.10 }), 2);
+  check('T26b year-1 gross sale', d.wd[0].sold, 50000);
+  check('T26b year-2 lager tax', d.wd[1].tax, 850);
+  check('T26b year-2 sells the taxed remainder', d.wd[1].sold, 54150);
+  check('T26b per-year taxes sum to the total', d.wd.reduce((s, w) => s + w.tax, 0), d.tax);
+}
+
+// T27: the chart series' per-year detail. With no fees/FX the identities are
+// exact: contributions across buckets sum to the total contributed, the
+// instant-sale curve equals balance minus latent tax, and the ASK curve
+// equals the account balance (nothing is lost selling it).
+{
+  const R = simulate(P({ initial: 0, monthly: 1000, horizon: 3, gross: 0.07, taxDiv: 0.02 }));
+  const contrib = R.series.reduce((s, x) => s + x.detail.contribAsk + x.detail.contribOv, 0);
+  check('T27 contributions reconcile', contrib, R.contributed);
+  for (const x of R.series) {
+    check(`T27 year ${x.year}: B = balance - latent tax`, x.B, x.detail.allV - x.latB);
+    check(`T27 year ${x.year}: ask curve = balance`, x.ask, x.detail.askV);
+  }
+}
+
+// T27b: the January refill shows up in the detail as a depot->ASK transfer.
+// Same scenario as T9b: year-2 headroom is exactly the re-deposited 1,700.
+{
+  const R = simulate(P({ askCeiling: 100000, initial: 190000, horizon: 2, gross: 0.10 }));
+  check('T27b year-1 refill is zero', R.series[0].detail.refill, 0);
+  check('T27b year-2 refill is the net deposit that fills the headroom', R.series[1].detail.refill, 1700, 0.01);
+  check('T27b year-2 lager tax recorded', R.series[1].detail.askTax, 1870);
+}
+
+// T28: the chosen plan's raw drawdowns are exposed for the audit table.
+// Same scenario as T24: A matches B's band-fill path from the ASK.
+{
+  const R = simulate(P({ initial: 1000000, horizon: 1, gross: 0.10, drawMode: 'kink' }));
+  check('T28 plan exposed with B\'s window', R.plan.dAll.wd.length, 2, 0);
+  check('T28 ASK covers the first-year match', R.plan.dAsk.wd[0].net, 851962);
+  check('T28 ASK year-2 lager tax on the remainder', R.plan.dAsk.wd[1].tax, 3927.65, 0.01);
+  check('T28 B year-1 booked income is the band', R.plan.dAll.wd[0].income, 79400);
+  check('T28 per-year ASK payouts sum to the total', R.plan.dAsk.wd.reduce((s, w) => s + w.net, 0), R.askFinal, 0.01);
+}
+
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');
 process.exit(fails ? 1 : 0);
