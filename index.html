@@ -671,7 +671,9 @@
       `<g class="axis">${ylab}${xlab}</g>`+
       `<g id="hover"></g>`;
 
-    chartState={s,n,X,Y,pl,pr,pt,pb,iw,ih,W,H,valA,valB,real,ds,dn,hz,dCashA,dCashB,dTopA,dTopB};
+    const valLatB = i => real ? s[i].latBreal : s[i].latB;
+    chartState={s,n,X,Y,pl,pr,pt,pb,iw,ih,W,H,valA,valB,valAsk,valLatB,split:!!R.firstOverflow,
+                real,ds,dn,hz,dCashA,dCashB,dTopA,dTopB};
   }
 
   function onHover(evt){
@@ -697,11 +699,14 @@
           `<circle class="dotB" cx="${xx.toFixed(1)}" cy="${cs.Y(cB).toFixed(1)}" r="4"/>`+
           `<circle class="dotA" cx="${xx.toFixed(1)}" cy="${cs.Y(cA).toFixed(1)}" r="4"/>`;
       }
+      const pA=cA-cs.dCashA(dk-1), pB=cB-cs.dCashB(dk-1);   // the year's own payout
       tip.innerHTML =
         `<div class="ty">Udtrækningsår ${dk+1}${cs.real?' · realt':''}</div>`+
         `<div class="tr"><span class="k"><span class="sw" style="background:var(--ask)"></span>ASK udbetalt</span><span>${kr(cA)}</span></div>`+
+        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;heraf i år</span><span>${kr(pA)}</span></div>`+
         `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;+ resten solgt nu</span><span>${kr(rA)}</span></div>`+
         `<div class="tr tg"><span class="k"><span class="sw" style="background:var(--tax)"></span>Depot udbetalt</span><span>${kr(cB)}</span></div>`+
+        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;heraf i år</span><span>${kr(pB)}</span></div>`+
         `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;+ resten solgt nu</span><span>${kr(rB)}</span></div>`;
       tip.style.left=clampX(xx/cs.W*rect.width)+'px';
       tip.style.top=(Math.min(cs.Y(cs.dTopA(dk)), cs.Y(cs.dTopB(dk)))/cs.H*rect.height)+'px';
@@ -717,10 +722,19 @@
         `<circle class="dotA" cx="${xx.toFixed(1)}" cy="${yA.toFixed(1)}" r="4" fill="var(--ask)"/>`;
     }
     const A=cs.valA(bi), B=cs.valB(bi), gap=A-B;
+    // A's split only appears once something overflows the ceiling (until then
+    // it coincides with the ASK line); B always shows the realisation tax its
+    // curve has already paid — easy to forget it is baked into every point
+    const split=cs.split
+      ? `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;heraf ASK-konto</span><span>${kr(cs.valAsk(bi))}</span></div>`+
+        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;heraf frit depot</span><span>${kr(A-cs.valAsk(bi))}</span></div>`
+      : '';
     tip.innerHTML =
       `<div class="ty">År ${cs.s[bi].year}${cs.dn?' · alt solgt nu':''}${cs.real?' · realt':''}</div>`+
       `<div class="tr"><span class="k"><span class="sw" style="background:var(--ask)"></span>Maksimér ASK</span><span>${kr(A)}</span></div>`+
+      split+
       `<div class="tr"><span class="k"><span class="sw" style="background:var(--tax)"></span>Kun frit depot</span><span>${kr(B)}</span></div>`+
+      `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;salgsskat trukket fra</span><span>${kr(cs.valLatB(bi))}</span></div>`+
       `<div class="tr tg"><span class="k">ASK-fordel</span><span class="${gap>=0?'pos':'neg'}">${krSigned(gap)}</span></div>`;
     tip.style.left=clampX(xx/cs.W*rect.width)+'px';
     tip.style.top=(Math.min(yA,yB)/cs.H*rect.height)+'px';
