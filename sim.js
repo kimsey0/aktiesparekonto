@@ -27,14 +27,19 @@
   // One bucket's share income for one tax year. The assessment is annual, so
   // dividends and realised gains/losses net against each other (and against the
   // loss carryforward) regardless of order within the year — a loss realised in
-  // December refunds tax already charged on the spring dividends. `base` is
-  // band consumed by share income outside the model (P.threshUsed); `carry` is
-  // the carried-forward loss, which only ever meets share income here
-  // (kildeartsbegrænset, ABL § 13 A).
+  // December refunds tax already charged on the spring dividends. `base` is the
+  // household's other listed-share income (P.threshUsed), taxed outside the
+  // model: it consumes the low-rate band, and because listed-share losses are
+  // netted against ALL the year's listed-share income (ABL § 13 A), the model's
+  // losses — current and carried forward, used at the earliest opportunity —
+  // also refund tax on it. The model books only its own increment:
+  // tax(base + income − carry) − tax(base). `carry` only ever meets share
+  // income here (kildeartsbegrænset).
   function newLedger(thr, base, carry){ return {thr, base, carry, income:0, tax:0}; }
   // the tax a signed income item `d` would add (negative = refund), unbooked
   function taxOn(L, d, P){
-    return bracketTax(L.income+d-L.carry, L.thr, L.base, P.taxLow, P.taxHigh)-L.tax;
+    return aktieTax(L.base+L.income+d-L.carry, L.thr, P.taxLow, P.taxHigh)
+         - aktieTax(L.base, L.thr, P.taxLow, P.taxHigh) - L.tax;
   }
   // book a signed income item and return its tax delta
   function settle(L, d, P){
@@ -42,10 +47,12 @@
     L.income+=d; L.tax+=t;
     return t;
   }
-  // the carry a fresh year would start with: consumed carry is spent, the
-  // year's unusable negative income is added (does not mutate L)
+  // the carry a fresh year would start with: the year's combined income
+  // (external + the model's own) consumes carry, and what remains negative
+  // is added to it (does not mutate L)
   function closeYear(L){
-    return L.carry - Math.min(Math.max(0,L.income), L.carry) + Math.max(0,-L.income);
+    const net=L.base+L.income;
+    return L.carry - Math.min(Math.max(0,net), L.carry) + Math.max(0,-net);
   }
 
   // sell enough of an average-cost position that the seller nets `target` after
@@ -202,8 +209,13 @@
   // most as much as B's depot, so its dividends are at most B's, which B pays
   // out too. The final window year liquidates both buckets, flagging `forced`
   // if the depot's remaining gain overflows the band.
+  // When strategy A is the poorer one, both buckets can run dry before the
+  // window ends — the match is then infeasible, and the missed interim cash is
+  // reported as `shortfall` (first missed year in `shortYear`) so the caller
+  // can say so instead of silently paying less.
   function matchedDrawdown(ovV, ovBasis, askV, askCarry, P, thrOf, L0, ref){
     const N=Math.max(1, ref.years||1);
+    let shortfall=0, shortYear=null;
     const oOv={tax:0, fee:0, years:0, after:0, wd:[], forced:false};
     const oAsk={tax:0, fee:0, fx:0, years:0, after:0, wd:[]};
     let v=ovV, b=ovBasis, av=askV, carry=askCarry;
@@ -292,6 +304,8 @@
             oAsk.fee+=fee; oAsk.fx+=fx; oAsk.after+=netAsk;
             yAskSold=g; yAskFee=fee; yAskFx=fx;
           }
+          const still=target-netOv-netAsk;
+          if(still>0.01){ shortfall+=still; if(shortYear===null) shortYear=k; }
         }
       }
       // aborts = what each remainder would net sold as a lump next year
@@ -308,7 +322,7 @@
                     v:Math.max(0,av), carry});
       oOv.years=k+1; oAsk.years=k+1;
     }
-    return {dOv:oOv, dAsk:oAsk};
+    return {dOv:oOv, dAsk:oAsk, shortfall, shortYear};
   }
 
   function simulate(P){
@@ -380,7 +394,8 @@
     // in the mark-to-market base).
     function fundAsk(target, L){
       const s=sellForNet(ov, Math.min(target, ov.v), L, P);
-      if(s.net<=1) return null;
+      // skip refills the ASK-side minimum commission would eat whole
+      if(s.net<=1 || s.net<=askFee(s.net, P)) return null;
       settle(L, s.rg, P);
       ov.basis-=s.gross*(ov.basis/ov.v); ov.v-=s.gross;
       ov.taxCum+=s.tax; ov.feeCum+=s.fee;
@@ -411,6 +426,11 @@
       const contrib=P.monthly+(m===0?P.initial:0);
       let toAsk=Math.min(budget,contrib); budget-=toAsk;
       let toOv=contrib-toAsk;
+      // an ASK buy smaller than its minimum commission would end up worth less
+      // than nothing — no one places that order. The sliver goes to the depot
+      // instead, and the headroom stays available for the December refill,
+      // which sweeps it into the ASK as one economic trade when it can.
+      if(toAsk>0 && !P.msAsk && toAsk<=askFee(toAsk, P)){ budget+=toAsk; toOv+=toAsk; toAsk=0; }
       if(toOv>1 && firstOverflow===null) firstOverflow=y+1;
       snap.contribAsk+=toAsk; snap.contribOv+=toOv;
 
@@ -425,9 +445,13 @@
       ask.v+=(toAsk-buyFeeAsk)*(1-P.askForex); ask.fxCum+=(toAsk-buyFeeAsk)*P.askForex;
       ask.contribYr+=toAsk; ask.feeCum+=buyFeeAsk;
 
-      const buyFeeOv=(!P.msDepot && toOv>0) ? Math.max(P.feePct*toOv, P.feeMin) : 0;
+      // depot minimums are capped at the order amount, so a sliver below the
+      // minimum commission nets zero rather than a negative holding (in
+      // practice it would be batched with a later buy; bounded by one
+      // commission and only reachable with kurtage on tiny contributions)
+      const buyFeeOv=(!P.msDepot && toOv>0) ? Math.min(Math.max(P.feePct*toOv, P.feeMin), toOv) : 0;
       ov.v+=toOv-buyFeeOv; ov.basis+=toOv; ov.feeCum+=buyFeeOv;
-      const buyFeeAll=(!P.msDepot && contrib>0) ? Math.max(P.feePct*contrib, P.feeMin) : 0;
+      const buyFeeAll=(!P.msDepot && contrib>0) ? Math.min(Math.max(P.feePct*contrib, P.feeMin), contrib) : 0;
       all.v+=contrib-buyFeeAll; all.basis+=contrib; all.feeCum+=buyFeeAll;
 
       if(mi===0){
@@ -503,17 +527,17 @@
           // strategy A matches it krone for krone, so the two totals compare
           // at identical cash flows.
           const dAll=drawdown(all.v, all.basis, P, thrOf, all.led);
-          let dOv, dAsk;
+          let dOv, dAsk, shortfall=0, shortYear=null;
           if(P.drawMode==='kink'){
             const m=matchedDrawdown(ov.v, ov.basis, ask.v, ask.carry, P, thrOf, ov.led, dAll);
-            dOv=m.dOv; dAsk=m.dAsk;
+            dOv=m.dOv; dAsk=m.dAsk; shortfall=m.shortfall; shortYear=m.shortYear;
           } else {
             dOv=drawdown(ov.v, ov.basis, P, thrOf, ov.led);
             dAsk=askDrawdown(ask.v, ask.carry, P, Math.min(100, Math.max(1,Math.round(P.liqYears))));
           }
           // real mode deflates each payout by its own year
           const realSum=w=>w.reduce((s,x)=>s+x.net/Math.pow(1+P.infl, y+1+x.k),0);
-          fin={dOv, dAll, dAsk,
+          fin={dOv, dAll, dAsk, shortfall, shortYear,
                A:dAsk.after+dOv.after, B:dAll.after,
                Areal:realSum(dAsk.wd)+realSum(dOv.wd), Breal:realSum(dAll.wd)};
         }
@@ -553,7 +577,10 @@
       B_fee: all.feeCum + fin.dAll.fee,
       A_fx: ask.fxCum + fin.dAsk.fx,
       A_years: fin.dOv.years, B_years: fin.dAll.years,
-      A_forced: fin.dOv.forced, B_forced: fin.dAll.forced
+      A_forced: fin.dOv.forced, B_forced: fin.dAll.forced,
+      // kink mode only: interim cash strategy A could not deliver because both
+      // its buckets ran dry before the window ended (0 when the match held)
+      A_shortfall: fin.shortfall, A_shortYear: fin.shortYear
     };
   }
 

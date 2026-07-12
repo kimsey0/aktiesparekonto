@@ -126,6 +126,17 @@ try {
   check('flat threshold: forced-sale warning shown', /tvangssælges/.test(el('drawNote').textContent));
   check('flat threshold: warning names the 30-year window', /30/.test(el('drawNote').textContent));
 
+  // a long, thin scenario where the ASK strategy cannot match the depot
+  // strategy's payouts: the tool must say so instead of matching silently
+  el('reset').fire('click');
+  el('dm_kink').fire('click');
+  el('monthly').value = '1000'; el('monthly').fire('input');
+  el('horizon').value = '40'; el('horizon').fire('input');
+  check('infeasible match: run-dry warning shown', /løber tør/.test(el('drawNote').textContent), el('drawNote').textContent.slice(-200));
+  el('monthly').value = '4000'; el('monthly').fire('input');
+  el('horizon').value = '20'; el('horizon').fire('input');
+  check('feasible match: no run-dry warning', !/løber tør/.test(el('drawNote').textContent));
+
   el('dm_years').fire('click');
   el('reset').fire('click');
   check('reset restores defaults', num(el('A_big').textContent) === A0 && el('taxDiv').value == 1.4 && el('dv_tech')._attrs['aria-pressed'] === 'true');

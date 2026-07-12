@@ -20,10 +20,14 @@ payout path (capped at 30 years, with a flagged forced sale of any remainder),
 and the ASK strategy delivers exactly the same net cash in the same years —
 funded from its own taxable account first, within the band, topped up from the
 ASK — so the two strategies are compared at identical cash flows and differ
-only in what remains invested at the end. Realised losses in the taxable
-account are netted against the year's dividends and gains and carried forward,
-mirroring the source-limited loss rules for listed share-based funds (carry
-left unused when the model ends is counted as worthless). The chart plots after-tax wealth if
+only in what remains invested at the end. When the ASK strategy is the poorer
+one, it can run dry before the window ends; the tool then warns and reports
+the interim cash it failed to deliver instead of matching silently. Realised
+losses in the taxable account are netted against the year's dividends and
+gains — including share income earned outside the model, per the annual
+household assessment — and carried forward, mirroring the source-limited loss
+rules for listed share-based funds (carry left unused when the model ends is
+counted as worthless). The chart plots after-tax wealth if
 everything were sold in a given year; the chosen plan's payout path is drawn
 separately from the horizon onwards. Every assumption is an editable input,
 and the methodology — including the deliberate simplifications — is documented

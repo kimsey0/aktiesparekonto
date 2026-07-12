@@ -379,6 +379,7 @@ function check(name, got, want, tol = 0.01) {
       maxDiff = Math.max(maxDiff, Math.abs(R.drawSeries[k].cashA - R.drawSeries[k].cashB));
     check(`T24b interim payouts identical (${divMode})`, maxDiff, 0, 1);
     check(`T24b payout path converges on the A total (${divMode})`, R.drawSeries[R.drawSeries.length - 1].cashA, R.A_after, 0.5);
+    check(`T24b no shortfall when the match holds (${divMode})`, R.A_shortfall, 0);
   }
 }
 
@@ -458,6 +459,75 @@ function check(name, got, want, tol = 0.01) {
   check('T28 ASK year-2 lager tax on the remainder', R.plan.dAsk.wd[1].tax, 3927.65, 0.01);
   check('T28 B year-1 booked income is the band', R.plan.dAll.wd[0].income, 79400);
   check('T28 per-year ASK payouts sum to the total', R.plan.dAsk.wd.reduce((s, w) => s + w.net, 0), R.askFinal, 0.01);
+}
+
+// T29: a modelled loss offsets share income earned outside the model (the
+// annual household assessment nets all listed-share income, ABL § 13 A).
+// 90k with basis 100k, 0% growth, lump sale, 79,400 of external listed income:
+// combined income drops to 69,400, refunding 10,000 x 27% = 2,700 — the loss
+// is used immediately, not carried.
+{
+  const d = drawdown(90000, 100000, P({ liqYears: 1, gross: 0, threshUsed: 79400 }), FLAT, L(79400));
+  check('T29 loss refunds tax on external income', d.tax, -2700);
+  check('T29 payout includes the refund', d.after, 92700);
+}
+
+// T29b: a carried loss is consumed by the external income at the earliest
+// opportunity. External income 20,000/yr; 100k with basis 150k at 50% p.a.
+// over 2 sale years: year 1 sells half, realising -25,000 — 20,000 offsets
+// the external income (refund 5,400) and 5,000 carries. In year 2 the rest
+// has grown back to its basis (gain 0), but the carry must still be used:
+// it offsets the external income for a 1,350 refund.
+{
+  const d = drawdown(100000, 150000, P({ liqYears: 2, gross: 0.50, threshUsed: 20000 }), FLAT, L(20000));
+  check('T29b year-1 refund on external income', d.wd[0].tax, -5400);
+  check('T29b carry consumed by external income in year 2', d.wd[1].tax, -1350);
+  check('T29b withdrawals include both refunds', d.after, 131750);
+}
+
+// T30: when the ASK strategy is the poorer one, it cannot match the depot
+// strategy's payouts to the end of the kink window. The gap must be detected
+// and reported, not silently paid short: payouts stay identical up to the
+// reported year, and the shortfall accounts for exactly the interim cash A
+// failed to deliver.
+{
+  const D = { initial: 100000, monthly: 1000, horizon: 40, gross: 0.07, infl: 0.02,
+    askTer: 0.0007, askForex: 0.0025, askCeiling: 174200, reg: 0.02, threshold27: 87100,
+    taxTer: 0.003, taxDiv: 0.014, divMode: 'tech', feePct: 0.001, feeMin: 25,
+    askFeePct: 0.0015, askFeeMin: 25, msAsk: false, drawMode: 'kink' };
+  const R = simulate(P(D));
+  check('T30 shortfall reported', R.A_shortfall > 1 ? 1 : 0, 1, 0);
+  check('T30 shortfall year reported', R.A_shortYear !== null ? 1 : 0, 1, 0);
+  let pre = 0;
+  for (let k = 0; k < R.A_shortYear; k++)
+    pre = Math.max(pre, Math.abs((R.plan.dOv.wd[k].net + R.plan.dAsk.wd[k].net) - R.plan.dAll.wd[k].net));
+  check('T30 payouts identical before the shortfall year', pre, 0, 1);
+  let miss = 0;
+  for (let k = R.A_shortYear; k < R.plan.dAll.wd.length - 1; k++)
+    miss += R.plan.dAll.wd[k].net - (R.plan.dOv.wd[k].net + R.plan.dAsk.wd[k].net);
+  check('T30 shortfall equals the missed interim cash', R.A_shortfall, miss, 1);
+}
+
+// T31: an order smaller than its minimum commission is never filled negative.
+// ASK slivers are routed to the depot (the December refill sweeps them into
+// the ASK only when one economic trade can fund it), and depot minimums are
+// capped at the order amount — so no holding can go below zero.
+{
+  const o = { initial: 0, monthly: 10, horizon: 2, gross: 0.07,
+              feePct: 0.001, feeMin: 25, askFeePct: 0.0015, askFeeMin: 25,
+              askCeiling: 174200, msAsk: false };
+  const R = simulate(P(o));                                        // depot buys free (månedsopsparing)
+  let neg = 0;
+  for (const x of R.series)
+    neg = Math.min(neg, x.detail.askV, x.detail.ovV, x.detail.allV);
+  check('T31 no negative holdings (tiny ASK contributions)', neg >= 0 ? 1 : 0, 1, 0);
+  check('T31 A stays non-negative', R.A_after >= 0 ? 1 : 0, 1, 0);
+  const R2 = simulate(P(Object.assign({}, o, { msDepot: false }))); // depot pays kurtage too
+  let neg2 = 0;
+  for (const x of R2.series)
+    neg2 = Math.min(neg2, x.detail.askV, x.detail.ovV, x.detail.allV);
+  check('T31 depot fee capped at the order amount', neg2 >= 0 ? 1 : 0, 1, 0);
+  check('T31 B stays non-negative', R2.B_after >= 0 ? 1 : 0, 1, 0);
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');
