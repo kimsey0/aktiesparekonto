@@ -8,13 +8,26 @@
 <meta property="og:description" content="Interaktiv model: 17 % lagerskat mod 27/42 % realisationsskat — med omkostninger, indskudsloft, udbytter og udtrækningsstrategi. 2026-satser.">
 <meta name="description" content="Interaktiv model: 17 % lagerskat mod 27/42 % realisationsskat — med omkostninger, indskudsloft, udbytter og udtrækningsstrategi. 2026-satser.">
 <link rel="canonical" href="https://jacobbundgaard.dk/aktiesparekonto">
+<meta name="theme-color" content="#F3F2EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141613" media="(prefers-color-scheme: dark)">
+<script>
+  // Resolve a stored theme choice before first paint to avoid a flash. With no
+  // stored choice we leave data-theme unset so prefers-color-scheme keeps driving
+  // the palette (and keeps following the OS live).
+  try{
+    var t = localStorage.getItem('theme');
+    if(t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  }catch(e){}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
+    color-scheme:light;
     --paper:#F3F2EC;
     --surface:#FBFAF6;
+    --raise:#ffffff;      /* elevated surface — inputs, chips, table caps */
     --ink:#1F231D;
     --muted:#6C6F64;
     --faint:#9A9C90;
@@ -26,10 +39,35 @@
     --gap:#1A6B5E;        /* advantage band reuses teal */
     --pos:#1A6B5E;
     --neg:#B0492E;
+    --inkfill:#1F231D;    /* filled-control background (pressed seg, active chip) */
+    --onink:#ffffff;      /* text/marks sitting on a filled/ink surface */
+    --tip-bg:#1F231D;     /* tooltip body */
     --r:10px;
     --display:'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --body:ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     --mono:ui-monospace, 'SF Mono', 'JetBrains Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  }
+  /* ---------- dark theme ----------
+     Same warm hue family as the paper look, inverted. The accents are lifted so
+     the teal/ochre lines and text keep their contrast on the dark ground. Applied
+     from the OS preference, unless a manual choice pins data-theme on <html>. */
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme=light]){
+      color-scheme:dark;
+      --paper:#141613; --surface:#1C1F1A; --raise:#24271F;
+      --ink:#ECEAE0; --muted:#9EA096; --faint:#6E7166; --hair:#333730;
+      --ask:#4FA695; --ask-soft:#4FA69522; --tax:#D8A24C; --tax-soft:#D8A24C26;
+      --gap:#4FA695; --pos:#4FA695; --neg:#D57857;
+      --inkfill:#ECEAE0; --onink:#141613; --tip-bg:#2E332B;
+    }
+  }
+  :root[data-theme=dark]{
+    color-scheme:dark;
+    --paper:#141613; --surface:#1C1F1A; --raise:#24271F;
+    --ink:#ECEAE0; --muted:#9EA096; --faint:#6E7166; --hair:#333730;
+    --ask:#4FA695; --ask-soft:#4FA69522; --tax:#D8A24C; --tax-soft:#D8A24C26;
+    --gap:#4FA695; --pos:#4FA695; --neg:#D57857;
+    --inkfill:#ECEAE0; --onink:#141613; --tip-bg:#2E332B;
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -67,7 +105,7 @@
   .ledger .cell{padding:20px 22px}
   .ledger .cell.mid{
     display:flex; flex-direction:column; justify-content:center; text-align:center;
-    background:#fff; border-left:1px solid var(--hair); border-right:1px solid var(--hair);
+    background:var(--raise); border-left:1px solid var(--hair); border-right:1px solid var(--hair);
     min-width:210px;
   }
   .ledger .cap{display:flex; align-items:center; gap:8px; margin-bottom:10px}
@@ -100,7 +138,7 @@
   .inrow{display:flex; align-items:center; gap:8px}
   input[type=number]{
     width:100%; font-family:var(--mono); font-size:13.5px; color:var(--ink);
-    background:#fff; border:1px solid var(--hair); border-radius:7px; padding:7px 9px;
+    background:var(--raise); border:1px solid var(--hair); border-radius:7px; padding:7px 9px;
   }
   input[type=number]:out-of-range{border-color:var(--neg); background:#B0492E0d}
   .vh{position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
@@ -116,18 +154,18 @@
   input[type=range]::-moz-range-thumb{width:15px; height:15px; border-radius:50%; background:var(--ink); cursor:pointer; border:2px solid var(--surface)}
   .check{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--ink); cursor:pointer}
   .check input{width:16px; height:16px; accent-color:var(--ask)}
-  .seg{display:inline-flex; border:1px solid var(--hair); border-radius:7px; overflow:hidden; background:#fff}
+  .seg{display:inline-flex; border:1px solid var(--hair); border-radius:7px; overflow:hidden; background:var(--raise)}
   .seg button{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; padding:5px 11px; border:none; background:transparent; color:var(--muted); cursor:pointer}
-  .seg button[aria-pressed=true]{background:var(--ink); color:#fff}
+  .seg button[aria-pressed=true]{background:var(--inkfill); color:var(--onink)}
   .reset{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--muted); background:none; border:1px dashed var(--hair); border-radius:7px; padding:8px; width:100%; cursor:pointer; margin-top:4px}
   .reset:hover{color:var(--ink); border-color:var(--muted)}
   .presets{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:-6px 0 13px}
   .presets .plabel{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-right:2px}
-  .chip{font-family:var(--mono); font-size:11.5px; padding:4px 9px; border-radius:999px; border:1px solid var(--hair); background:#fff; color:var(--muted); cursor:pointer; line-height:1.2}
+  .chip{font-family:var(--mono); font-size:11.5px; padding:4px 9px; border-radius:999px; border:1px solid var(--hair); background:var(--raise); color:var(--muted); cursor:pointer; line-height:1.2}
   .chip:hover{border-color:var(--muted); color:var(--ink)}
   .presets[data-group=ask] .chip.active{background:var(--ask); border-color:var(--ask); color:#fff}
   .presets[data-group=tax] .chip.active{background:var(--tax); border-color:var(--tax); color:#fff}
-  .presets[data-group=fee] .chip.active{background:var(--ink); border-color:var(--ink); color:#fff}
+  .presets[data-group=fee] .chip.active{background:var(--inkfill); border-color:var(--inkfill); color:var(--onink)}
   .seg.full{display:flex; width:100%}
   .seg.full button{flex:1; text-align:center}
   .hide{display:none}
@@ -161,7 +199,7 @@
   .guide{stroke:var(--ink); stroke-width:1; opacity:.35}
   .dotA{fill:var(--ask)} .dotB{fill:var(--tax)}
   .tip{
-    position:absolute; pointer-events:none; background:var(--ink); color:#fff; border-radius:8px;
+    position:absolute; pointer-events:none; background:var(--tip-bg); color:#fff; border-radius:8px;
     padding:9px 11px; font-size:12px; min-width:160px; white-space:nowrap; transform:translate(-50%,-115%);
     opacity:0; transition:opacity .08s; box-shadow:0 8px 22px rgba(0,0,0,.18); z-index:5;
   }
@@ -177,12 +215,12 @@
   table.bd{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--hair); border-radius:var(--r); overflow:hidden; font-size:13.5px}
   table.bd th, table.bd td{padding:11px 14px; text-align:right; border-bottom:1px solid var(--hair)}
   table.bd th:first-child, table.bd td:first-child{text-align:left}
-  table.bd thead th{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:500; background:#fff}
+  table.bd thead th{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:500; background:var(--raise)}
   table.bd td{font-family:var(--mono)}
   table.bd td:first-child{font-family:var(--body); color:var(--muted)}
   table.bd tr:last-child td{border-bottom:none}
   table.bd .colA{color:var(--ask)} table.bd .colB{color:var(--tax)}
-  table.bd tr.tot td{background:#fff; font-weight:600; color:var(--ink)}
+  table.bd tr.tot td{background:var(--raise); font-weight:600; color:var(--ink)}
   table.bd tr.tot td:first-child{color:var(--ink)}
   .hd-swatch{display:inline-flex; align-items:center; gap:7px; justify-content:flex-end}
   /* ---------- year-by-year audit tables ---------- */
@@ -205,7 +243,7 @@
   .notes .cols{columns:2; column-gap:34px}
   .notes p{margin:0 0 12px; font-size:13px; color:var(--muted); break-inside:avoid}
   .notes p strong{color:var(--ink); font-weight:600}
-  .notes code{font-family:var(--mono); font-size:12px; background:#fff; border:1px solid var(--hair); border-radius:4px; padding:1px 5px; color:var(--ink)}
+  .notes code{font-family:var(--mono); font-size:12px; background:var(--raise); border:1px solid var(--hair); border-radius:4px; padding:1px 5px; color:var(--ink)}
   .disc{margin-top:14px; font-size:11.5px; color:var(--faint); max-width:80ch}
   /* ---------- responsive ---------- */
   @media (max-width:880px){
@@ -214,6 +252,23 @@
     .ledger .cell.mid{border-left:none; border-right:none; border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); order:1}
     .ledger .cell.a{order:0} .ledger .cell.b{order:2}
     .notes .cols{columns:1}
+  }
+  /* ---------- theme toggle ---------- */
+  .mast-side{display:flex; align-items:center; gap:12px; align-self:center}
+  .theme-toggle{
+    flex:none; width:34px; height:34px; border-radius:999px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid var(--hair); background:var(--raise); color:var(--ink);
+    font-size:15px; line-height:1; padding:0; transition:border-color .12s, color .12s;
+  }
+  .theme-toggle:hover{border-color:var(--muted)}
+  .theme-toggle .ic{display:none}
+  /* show the glyph for the theme you'd switch TO: moon while light, sun while dark */
+  :root:not([data-theme=dark]) .theme-toggle .ic-moon{display:block}
+  :root[data-theme=dark] .theme-toggle .ic-sun{display:block}
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme=light]) .theme-toggle .ic-moon{display:none}
+    :root:not([data-theme=light]) .theme-toggle .ic-sun{display:block}
   }
   :focus-visible{outline:2px solid var(--ask); outline-offset:2px}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -228,7 +283,13 @@
       <h1>Aktiesparekonto vs. frit depot</h1>
       <p class="sub">De 17 % på aktiesparekontoen vs. 27/42 % i et frit depot er kun overskriften. Når man lægger højere fondsomkostninger, valutaveksling, kurtage på ASK-køb (månedsopsparingen kan typisk ikke kobles på kontoen) og lagerbeskatningens manglende skatteudskydelse oveni, bliver forskellen mindre — og afhænger stærkt af din tidshorisont og hvordan du trækker pengene ud til sidst.</p>
     </div>
-    <span class="tag">17 % lager vs. 27/42 % realisation</span>
+    <div class="mast-side">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Skift farvetema" title="Skift farvetema">
+        <span class="ic ic-moon" aria-hidden="true">☾</span>
+        <span class="ic ic-sun" aria-hidden="true">☀</span>
+      </button>
+      <span class="tag">17 % lager vs. 27/42 % realisation</span>
+    </div>
   </header>
 
   <!-- hero result -->
@@ -1101,6 +1162,25 @@
     });
     syncFundChips();
   }
+
+  // theme toggle — flips the effective theme and pins the choice in localStorage.
+  // Once pinned we stop following the OS; clearing the key would resume that.
+  (function(){
+    const btn = $('themeToggle');
+    if(!btn) return;
+    const prefersDark = () => {
+      try{ return window.matchMedia('(prefers-color-scheme: dark)').matches; }catch(e){ return false; }
+    };
+    const effective = () => {
+      const t = document.documentElement.getAttribute('data-theme');
+      return (t === 'light' || t === 'dark') ? t : (prefersDark() ? 'dark' : 'light');
+    };
+    btn.addEventListener('click', () => {
+      const next = effective() === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try{ localStorage.setItem('theme', next); }catch(e){}
+    });
+  })();
 
   applyUrl();
   updateFundChips();
