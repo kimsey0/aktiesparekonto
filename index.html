@@ -431,7 +431,7 @@
   <!-- breakdown -->
   <section class="detail">
     <h2>Tal bag sammenligningen</h2>
-    <p class="lead">Begge strategier modtager nøjagtig samme indbetalinger. «Maksimér ASK» fylder aktiesparekontoen op først og lægger alt over loftet i det frie depot — så det er kun den del, der reelt er afskærmet, der adskiller de to.</p>
+    <p class="lead">Begge strategier modtager nøjagtig samme indbetalinger. «Maksimér ASK» fylder aktiesparekontoen op først og lægger alt over loftet i det frie depot — så det er kun den del, der reelt er afskærmet, der adskiller de to. Regnestykket går op linje for linje: indbetalt + afkast − skat − omkostninger = udbetalt.</p>
     <table class="bd">
       <caption class="vh">Sammenligning af strategierne «Maksimér ASK» og «Kun frit depot» efter horisonten</caption>
       <thead>
@@ -767,17 +767,19 @@
     const effA = preA>0 ? R.A_tax/preA*100 : 0;
     const effB = preB>0 ? R.B_tax/preB*100 : 0;
     const yrsTxt = n => n>0 ? n+' år' : '—';
+    // the first six rows reconcile: contributed + pre-tax return − tax − fees
+    // − FX = the after-tax payout, so the arithmetic can be checked by hand
     const rows=[
       ['Samlet indbetalt', kr(R.contributed), kr(R.contributed), false],
-      ['Udbetalt efter skat (nominelt)', kr(A), kr(B), false],
+      ['+ Afkast før skat og omkostninger', kr(preA), kr(preB), false],
+      ['− Skat betalt i alt', kr(R.A_tax), kr(R.B_tax), false],
+      ['− Kurtage', kr(R.A_fee), kr(R.B_fee), false],
+      ['− Valutaveksling', kr(R.A_fx), '—', false],
+      ['= Udbetalt efter skat (nominelt)', kr(A), kr(B), true],
       ['Udbetalt efter skat (realt)', kr(R.A_real), kr(R.B_real), false],
       ['Gevinst efter skat', kr(gainA), kr(gainB), false],
-      ['Skat betalt i alt', kr(R.A_tax), kr(R.B_tax), false],
-      ['Kurtage', kr(R.A_fee), kr(R.B_fee), false],
-      ['Valutaveksling', kr(R.A_fx), '—', false],
       ['Effektiv skat af gevinst før omkostninger', pct1(effA), pct1(effB), false],
-      ['År at sælge frit depot ud', yrsTxt(R.A_years), yrsTxt(R.B_years), false],
-      ['Resultat efter skat', kr(A), kr(B), true]
+      ['År at sælge frit depot ud', yrsTxt(R.A_years), yrsTxt(R.B_years), false]
     ];
     $('bdbody').innerHTML = rows.map(r=>
       `<tr class="${r[3]?'tot':''}"><td>${r[0]}</td><td class="colA">${r[1]}</td><td class="colB">${r[2]}</td></tr>`

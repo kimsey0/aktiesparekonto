@@ -67,6 +67,8 @@ check('hero B', /kr/.test(el('B_big').textContent), el('B_big').textContent);
 check('chart drawn', /path class="lineA"/.test(el('chart').innerHTML));
 check('no drawdown wedge at 1-year sale', !/dwCashA/.test(el('chart').innerHTML));
 check('table rows', (el('bdbody').innerHTML.match(/<tr/g) || []).length === 10);
+check('reconciliation rows present', /Afkast før skat og omkostninger/.test(el('bdbody').innerHTML) &&
+      /= Udbetalt efter skat/.test(el('bdbody').innerHTML));
 const A0 = num(el('A_big').textContent);
 
 try {
