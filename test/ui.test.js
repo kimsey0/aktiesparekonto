@@ -45,8 +45,13 @@ const chipEls = chips.map(c => { const e = makeEl('chip:' + c.group + ':' + c.fu
 global.document = {
   getElementById: id => (id === 'hover' ? null : el(id)),
   querySelectorAll: sel => (sel === '.chip' ? chipEls : []),
+  createElement: () => ({ click() {} }),
 };
 global.window = { ASKSIM: require('../sim.js'), addEventListener() {} };
+// capture the CSV export's blob content
+let csvText = '';
+global.Blob = function (parts) { this.parts = parts; };
+global.URL = { createObjectURL(b) { csvText = b.parts.join(''); return 'blob:x'; }, revokeObjectURL() {} };
 
 // --- run the page's script
 const script = html.slice(html.lastIndexOf('<script>') + 8, html.lastIndexOf('</script>'));
@@ -133,6 +138,15 @@ try {
 
   el('seg_real').fire('click');
   check('real-terms view renders', /path class="lineA"/.test(el('chart').innerHTML));
+  el('seg_nom').fire('click');
+
+  el('csv').fire('click');
+  check('CSV export contains both blocks', /Opsparingsårene/.test(csvText) && /Udtrækningen/.test(csvText));
+  check('CSV export has group-prefixed headers', /"Kun frit depot: Skat"/.test(csvText));
+  check('CSV uses Danish decimal commas', /;\d+,\d\d?;/.test(csvText));
+  check('CSV rows: header+20 years and header+1 drawdown year',
+        (csvText.split('\n\n')[0].match(/\n/g) || []).length === 21 &&
+        (csvText.split('\n\n')[1].match(/\n/g) || []).length === 2);
 } catch (e) {
   check('interactions', false, e.stack.split('\n').slice(0, 3).join(' | '));
 }

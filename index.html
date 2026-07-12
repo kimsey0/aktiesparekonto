@@ -468,6 +468,7 @@
       <h3>Udtrækningen</h3>
       <p class="lead">Udtrækningen følger din valgte salgsstrategi fra horisonten. «Udbetalt» er årets nettoudbetaling (inkl. udbetalte kontantudbytter), «Solgt» er bruttosalget bag den, og «ultimo» er, hvad der stadig står investeret ved årets udgang.</p>
       <div class="tscroll"><table class="bd audit-t" id="audit_draw"><caption class="vh">Udtrækningen år for år: udbetalinger, salg, skat og restbeholdninger pr. strategi</caption></table></div>
+      <button class="reset" id="csv" style="margin-top:14px">Download begge tabeller som CSV — med øre-præcision, til at efterregne i et regneark</button>
     </details>
   </section>
 
@@ -810,6 +811,28 @@
     auditTable('audit_draw', AUD_DRAW, drawRows(R));
   }
 
+  // ---------- CSV export ----------
+  // Same columns as the tables, but with øre precision so every line can be
+  // re-computed exactly. Semicolon-separated with Danish decimal commas (and
+  // a BOM), which da-DK Excel opens natively.
+  let lastR=null;   // most recent simulation result
+  function csvBlock(title, cols, rows){
+    const num=x=>String(Math.round(x*100)/100).replace('.',',');
+    const head=cols.map(c=>'"'+(c.g?c.g+': ':'')+c.t+'"').join(';');
+    const body=rows.map(r=>cols.map(c=>{ const v=c.f(r); return typeof v==='number'?num(v):v; }).join(';'));
+    return [title, head].concat(body).join('\n');
+  }
+  $('csv').addEventListener('click',()=>{
+    if(!lastR) return;
+    const csv='\uFEFF'+csvBlock('Opsparingsårene', AUD_SAVE, lastR.series)+'\n\n'+
+              csvBlock('Udtrækningen', AUD_DRAW, drawRows(lastR));
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    a.download='aktiesparekonto-aar-for-aar.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
   // ---------- render everything ----------
   let showReal=false;
   let drawMode='years';
@@ -898,6 +921,7 @@
       (R.firstOverflow ? `Loftet er fyldt op fra år ${R.firstOverflow}, hvorefter ny opsparing ryger i det frie depot.` :
                          `Loftet bliver ikke fyldt op inden for horisonten med de valgte indbetalinger.`);
 
+    lastR=R;
     renderAudit(R);
     renderChart(R, showReal);
   }
