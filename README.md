@@ -13,7 +13,10 @@ The model simulates month by month with annual tax settlement, and the final
 drawdown year by year: whatever is not yet sold stays invested, keeps
 distributing, and is taxed along the way (the ASK is withdrawn in parallel over
 the same years), so multi-year sale strategies are compared on equal cash-flow
-timing. In "up to the threshold" mode the strategy that needs the longest
+timing. Realised losses in the taxable account are netted against the year's
+dividends and gains and carried forward, mirroring the source-limited loss
+rules for listed share-based funds (carry left unused when the model ends is
+counted as worthless). In "up to the threshold" mode the strategy that needs the longest
 band-limited exit sets a common sale window for both (capped at 30 years, with
 a flagged forced sale of any remainder). The chart plots after-tax wealth if
 everything were sold in a given year; the chosen plan's payout path is drawn
@@ -69,7 +72,7 @@ Built with [Claude Code](https://claude.com/claude-code): the tax rules and
 fund/broker figures were researched and verified against primary sources
 (skat.dk, skm.dk, retsinformation.dk, fund providers), and the model was
 reviewed and tested against hand-computed expectations before publication.
-The tests in `test/` are part of that verification and run on every change.
+The tests in `test/` are part of that verification and run in CI on every push.
 
 ## Disclaimer
 
