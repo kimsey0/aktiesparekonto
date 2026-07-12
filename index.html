@@ -462,7 +462,7 @@
 
     <details class="audit" id="audit">
       <summary><span class="gt">År for år — alle mellemregninger</span><span class="caret"></span></summary>
-      <p class="lead">Hver række er ét år i modellen, alle beløb i nominelle kroner, afrundet (ved «Gift»: husstandens samlede tal; «–» er nul). Negativ skat er årets modregning af tidligere udbytteskat eller tab. «Aktieindkomst» er årets bogførte skattepligtige aktieindkomst — udbytter/minimumsindkomst plus realiserede gevinster minus realiserede tab — som beskattes med lav sats op til grænsen; «Tab fremført» er saldoen, der tages med ind i det følgende år. «Alt solgt nu» er kurvernes punkter: formuen efter skat, hvis alt blev solgt i det pågældende år.</p>
+      <p class="lead">Hver række er ét år i modellen. Alle beløb er nominelle kroner, afrundet («–» er nul efter afrunding; ved «Gift» er tallene husstandens samlede). Negativ skat er en refusion: opgørelsen er årlig, så et realiseret tab modregnes i årets øvrige aktieindkomst — også i skat, der allerede er beregnet af forårets udbytter. «Aktieindkomst» er årets bogførte skattepligtige aktieindkomst — udbytter/minimumsindkomst plus realiserede gevinster minus realiserede tab — som beskattes med lav sats op til grænsen; «Tab fremført» er saldoen, der tages med ind i det følgende år. «Alt solgt nu» er kurvernes punkter: formuen efter skat, hvis alt blev solgt i det pågældende år.</p>
       <h3>Opsparingsårene</h3>
       <div class="tscroll"><table class="bd audit-t" id="audit_save"><caption class="vh">Opsparingsårene år for år: indskud, saldi, skat og omkostninger pr. strategi</caption></table></div>
       <h3>Udtrækningen</h3>
@@ -488,7 +488,7 @@
       <p><strong>Gift?</strong> Fluebenet fordobler både loftet (I kan oprette hver jeres aktiesparekonto) og progressionsgrænsen (uudnyttet grundbeløb overføres automatisk mellem ægtefæller, der er samlevende ved årets udløb — personskattelovens § 8 a, stk. 4). Det forudsætter altså reelt, at I begge opretter konti fra nul og deler opsparingen ligeligt — hver konto har sit eget loft, så den enes ubrugte plads kan ikke bruges af den anden. Kurtagen regnes derfor også pr. konto: hver ASK-handel bogføres som to halvt så store ordrer, så et bindende kurtageminimum betales to gange (det frie depot regnes fortsat som ét).</p>
       <p><strong>Loft og grænser reguleres årligt.</strong> Både indskudsloftet og progressionsgrænsen følger personskattelovens § 20 (senest +3,9 % i 2025 og +4,8 % i 2026). Modellen fremskriver dem med samme redigerbare sats — standard 2 % p.a. Det allerede vedtagne ekstraløft af progressionsgrænsen fra 2027 er kodet ind som sit eget felt: 83.100 kr. i 2025-niveau svarer efter 2026-reguleringen på 4,8 % til 87.100 kr. i 2026-niveau, som fremskrives derfra med § 20-satsen. Grænsen antages fortsat reguleret i udtrækningsårene, og «Progressionsgrænse brugt af andet» (Avanceret) trækkes fra båndet i alle år (ved «Gift»: husstandens samlede beløb).</p>
       <p><strong>To måder at sælge ud på.</strong> Udtrækningen simuleres år for år: det endnu ikke solgte forbliver investeret, udlodder og beskattes undervejs — kontante udlodninger udbetales dog i stedet for at blive geninvesteret og indgår i årets udbetaling — og aktiesparekontoen beholdes tilsvarende investeret (fortsat 17 % lager) og udbetales over samme årrække. «Fast antal år» fordeler salget ligeligt over de valgte år; «Op til grænsen» sælger netop progressionsgrænsen i gevinst om året, så alt rammer den lave sats. Det frie depots grænsesalg definerer udbetalingstakten, og «Maksimér ASK» udbetaler nøjagtig de samme beløb i de samme år — først fra sit eget frie depot op til grænsen, resten fra aktiesparekontoen, som ingen progressionsgrænse har og derfor holdes længst muligt i den lave lagerbeskatning. Med ens pengestrømme kan totalerne sammenlignes direkte; ellers ville man lægge beløb modtaget i forskellige årtier sammen, som om de var samtidige. Kan grænsen ikke nå det hele inden for 30 år, tvangssælges resten i år 30 (delvist til høj sats), og værktøjet advarer. «Skattehøst» gør det samme undervejs i opsparingen: realisér gevinst op til grænsen hvert år og genkøb, så anskaffelsessummen trinnes op og slutskattens 42 %-del skrumper. Det er reelt frivillig lagerbeskatning — bare til 27 % i stedet for ASK'ens 17 % og med kurtage oveni — så det hjælper kun, når slutsalget ellers ville ramme den høje sats, og sjældent nok til at betale sig. Da «Op til grænsen» allerede realiserer op til grænsen hvert år, er skattehøst kun tilgængelig sammen med «Fast antal år». Praktisk detalje: Danmark har ingen egentlig wash-sale-regel, men genkøb <em>samme dag</em> risikerer at blive tilsidesat skattemæssigt (Den juridiske vejledning C.B.2.1.4.10) — vent mindst en handelsdag og handl til markedskurs.</p>
-      <p><strong>Del et scenarie.</strong> Dine ændringer lægges løbende i sidens adresse — kopiér linket, og modtageren ser præcis dit scenarie (praktisk, hvis du vil diskutere et resultat eller melde en fejl). Kun felter, der afviger fra standardværdierne, indgår, og «Nulstil» rydder adressen igen. Opdateres sidens standardværdier senere (fx nye årssatser), følger de ikke-låste felter i et gammelt link med de nye standarder.</p>
+      <p><strong>Del et scenarie.</strong> Dine ændringer lægges løbende i sidens adresse — kopiér linket, og modtageren ser præcis dit scenarie (praktisk, hvis du vil diskutere et resultat eller melde en fejl). Kun felter, der afviger fra standardværdierne, indgår, og «Nulstil» rydder adressen igen. Et link fastlåser altså kun det, afsenderen selv har ændret: opdateres sidens standardværdier senere (fx nye årssatser), følger resten af et gammelt link med de nye standarder.</p>
       <p><strong>Inflation rammer lager hårdere.</strong> Skatten beregnes af nominelle gevinster, så lagerbeskatningen tærer også på den inflationsskabte del af afkastet hvert år. Reale tal er nominelle beløb deflateret med din inflationsantagelse frem til hvert beløbs eget år.</p>
       <p><strong>Det nye regeringsudspil.</strong> Regeringsgrundlaget (juni 2026) vil hæve loftet til 500.000 kr. og opgøre det efter oprindeligt indskud frem for løbende værdi — en politisk målsætning, ikke vedtaget lov. Du kan tilnærme effekten ved at sætte <code>Indskudsloft = 500000</code> — men bemærk, at udspillet rummer mere end loftet (bl.a. en ændret loftsdefinition og ændringer af aktieindkomstbeskatningen), så ét felt er kun en grov tilnærmelse. Den varslede undersøgelse af en norsk-inspireret beskatning ved udtræk ville ændre selve lagerprincippet og er ikke modelleret.</p>
       <p><strong>Forenklinger.</strong> Deterministisk afkast — ingen volatilitet, så ASK'ens tabsfremførsel udløses ikke i standardscenariet; med udsving betaler ASK skat i gode år, mens tab kun fremføres, så fordelen bliver typisk lidt mindre end vist (en Monte Carlo-udgave er på ønskelisten). Skat betales af spanden selv og trækkes i modellen 31/12 — reelt hæves ASK-skatten først medio februar året efter og aktieskat via årsopgørelsen, så modellen er en anelse konservativ. Kurtage (procent med minimum, pr. marked: dansk børs for depotets fonde, Xetra for ASK'ens ETF) lægges på de aktive handler — skattehøst, ASK-finansiering og salgene under udtrækningen i begge spande — samt på løbende køb i det omfang, månedsopsparingen ikke dækker dem; geninvestering af udbytter i opsparingsårene regnes fortsat gratis (i praksis kan den ride med på månedsopsparingen eller et køb, du alligevel foretager; under udtrækningen udbetales kontante udbytter i stedet), og gevinst og kurtage på det lille salg, der finansierer skatten af teknisk udbytte, ignoreres. Realiserede kurstab i det frie depot modregnes i årets udbytter og gevinster og fremføres derefter til senere år; opgørelsen er årlig, så et tab realiseret i december modregnes også i skatten af forårets udbytter — det sker fx, når udlodningerne overstiger afkastet, så anskaffelsessummen vokser op over værdien. Fremført tab, der står ubrugt, når modellen slutter, regnes uden værdi — i virkeligheden kan det modregnes i din senere aktieindkomst fra noterede papirer. Modellens gyldighedsområde er fortsat deterministiske, ikke-negative markedsafkast. Modellen starter desuden fra nul: eksisterende beholdninger, gennemsnitskurser på tværs af depoter og allerede fremførte tab er ikke med. Skattestyrelsens positivliste opdateres årligt — ryger en ETF af listen, ændres dens beskatning uden for ASK. Personfradrag og modregning af afkast i offentlige ydelser — hvor ASK'en har en yderligere fordel, da dens afkast ikke tæller med — er ikke medregnet. Sammenligninger med pensionsordninger (alders-/ratepension) er uden for værktøjets scope.</p>
@@ -727,8 +727,8 @@
     // it coincides with the ASK line); B always shows the realisation tax its
     // curve has already paid — easy to forget it is baked into every point
     const split=cs.split
-      ? `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;heraf ASK-konto</span><span>${kr(cs.valAsk(bi))}</span></div>`+
-        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;heraf frit depot</span><span>${kr(A-cs.valAsk(bi))}</span></div>`
+      ? `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;heraf på ASK-kontoen</span><span>${kr(cs.valAsk(bi))}</span></div>`+
+        `<div class="tr"><span class="k">&nbsp;&nbsp;&nbsp;heraf i frit depot</span><span>${kr(A-cs.valAsk(bi))}</span></div>`
       : '';
     tip.innerHTML =
       `<div class="ty">År ${cs.s[bi].year}${cs.dn?' · alt solgt nu':''}${cs.real?' · realt':''}</div>`+
@@ -751,18 +751,18 @@
     {g:'', t:'År', f:s=>s.year},
     {g:'', t:'Grænse', f:s=>s.detail.thr},
     {g:'Maksimér ASK', t:'Indskud ASK', f:s=>s.detail.contribAsk},
-    {g:'Maksimér ASK', t:'Flyttet depot→ASK', f:s=>s.detail.refill},
+    {g:'Maksimér ASK', t:'Fyldt op fra depot', f:s=>s.detail.refill},
     {g:'Maksimér ASK', t:'Indskud depot', f:s=>s.detail.contribOv},
     {g:'Maksimér ASK', t:'ASK ultimo', f:s=>s.detail.askV},
     {g:'Maksimér ASK', t:'Lagerskat', f:s=>s.detail.askTax},
-    {g:'Maksimér ASK', t:'Kurtage+veksling ASK', f:s=>s.detail.askFee+s.detail.askFx},
+    {g:'Maksimér ASK', t:'Kurtage + veksling ASK', f:s=>s.detail.askFee+s.detail.askFx},
     {g:'Maksimér ASK', t:'ASK-tab fremført', f:s=>s.detail.askCarry},
     {g:'Maksimér ASK', t:'Depot ultimo', f:s=>s.detail.ovV},
     {g:'Maksimér ASK', t:'Anskaffelsessum', f:s=>s.detail.ovBasis},
     {g:'Maksimér ASK', t:'Aktieindkomst', f:s=>s.detail.ovIncome},
     {g:'Maksimér ASK', t:'Skat', f:s=>s.detail.ovTax},
     {g:'Maksimér ASK', t:'Kurtage', f:s=>s.detail.ovFee},
-    {g:'Maksimér ASK', t:'Tab fremført', f:s=>s.detail.ovCarry},
+    {g:'Maksimér ASK', t:'Depot-tab fremført', f:s=>s.detail.ovCarry},
     {g:'Kun frit depot', t:'Depot ultimo', f:s=>s.detail.allV},
     {g:'Kun frit depot', t:'Anskaffelsessum', f:s=>s.detail.allBasis},
     {g:'Kun frit depot', t:'Aktieindkomst', f:s=>s.detail.allIncome},
@@ -784,7 +784,7 @@
     {g:'Maksimér ASK', t:'Solgt ASK', f:r=>n0(r.s.sold)},
     {g:'Maksimér ASK', t:'Skat depot', f:r=>n0(r.a.tax)},
     {g:'Maksimér ASK', t:'Lagerskat ASK', f:r=>n0(r.s.tax)},
-    {g:'Maksimér ASK', t:'Kurtage+veksling', f:r=>n0(r.a.fee)+n0(r.s.fee)+n0(r.s.fx)},
+    {g:'Maksimér ASK', t:'Kurtage + veksling', f:r=>n0(r.a.fee)+n0(r.s.fee)+n0(r.s.fx)},
     {g:'Maksimér ASK', t:'Aktieindkomst', f:r=>n0(r.a.income)},
     {g:'Maksimér ASK', t:'Depot ultimo', f:r=>n0(r.a.v)},
     {g:'Maksimér ASK', t:'ASK ultimo', f:r=>n0(r.s.v)},
