@@ -29,6 +29,14 @@ separately from the horizon onwards. Every assumption is an editable input,
 and the methodology — including the deliberate simplifications — is documented
 in detail at the bottom of the page itself ("Sådan regner modellen").
 
+The numbers are built to be checked: the breakdown table reconciles line by
+line (contributed + pre-tax return − tax − fees − FX = payout), a collapsible
+year-by-year audit table shows every balance, contribution, tax and fee per
+strategy — for the accumulation years and the drawdown separately — and can be
+downloaded as CSV with øre precision for re-computation in a spreadsheet.
+Settings that differ from the defaults are encoded in the page URL, so a
+specific scenario can be shared or attached to a bug report as a link.
+
 ## Files
 
 | File | Contents |
