@@ -141,11 +141,27 @@ try {
   el('reset').fire('click');
   check('reset restores defaults', num(el('A_big').textContent) === A0 && el('taxDiv').value == 1.4 && el('dv_tech')._attrs['aria-pressed'] === 'true');
 
-  const Ad = num(el('A_big').textContent);   // defaults again after reset (ms = depot)
+  const Ad = num(el('A_big').textContent);   // defaults again after reset (Nordnet, ms = depot)
   el('ms_none').fire('click');
   check('ms=none: A drops (depot buys pay kurtage too)', num(el('A_big').textContent) < Ad);
   el('ms_both').fire('click');
   check('ms=both: A rises (ASK buys free)', num(el('A_big').textContent) > Ad);
+  check('manual månedsopsparing change detaches the bank chip',
+        !chipEls.find(c => c.dataset.fund === 'Nordnet').classList.contains('active'));
+
+  chipEls.find(c => c.dataset.fund === 'Danske').fire('click');
+  check('Danske Bank chip sets both fee schedules and FX',
+        el('feePct').value === '0.15' && el('feeMin').value === '29' &&
+        el('askFeePct').value === '0.20' && el('askFeeMin').value === '29' &&
+        el('askForex').value === '0.30',
+        el('feePct').value + '/' + el('feeMin').value + '/' + el('askFeePct').value + '/' + el('askFeeMin').value + '/' + el('askForex').value);
+  check('Danske Bank chip selects ms=both', el('ms_both')._attrs['aria-pressed'] === 'true');
+  el('ms_both').fire('click');
+  check('ms click matching the preset keeps the chip',
+        chipEls.find(c => c.dataset.fund === 'Danske').classList.contains('active'));
+  chipEls.find(c => c.dataset.fund === 'Nordnet').fire('click');
+  check('Nordnet chip selects ms=depot again', el('ms_depot')._attrs['aria-pressed'] === 'true');
+  check('Nordnet chip restores 0.25 % FX', el('askForex').value === '0.25', el('askForex').value);
   el('reset').fire('click');
   check('reset restores månedsopsparing default', el('ms_depot')._attrs['aria-pressed'] === 'true');
 
