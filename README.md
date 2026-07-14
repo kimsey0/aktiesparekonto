@@ -40,6 +40,10 @@ strategy — for the accumulation years and the drawdown separately — and can 
 downloaded as CSV with øre precision for re-computation in a spreadsheet.
 Settings that differ from the defaults are encoded in the page URL, so a
 specific scenario can be shared or attached to a bug report as a link.
+A compact view (the ⛶ button in the header) hides the controls and prose and
+lines up the result, a chip strip naming every assumption in the current
+scenario, the chart and the reconciliation table — so a single screenshot
+carries both the numbers and their premises.
 
 ## Files
 

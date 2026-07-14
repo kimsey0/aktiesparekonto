@@ -46,6 +46,7 @@ global.document = {
   getElementById: id => (id === 'hover' ? null : el(id)),
   querySelectorAll: sel => (sel === '.chip' ? chipEls : []),
   createElement: () => ({ click() {} }),
+  documentElement: makeEl('html'),
 };
 global.window = { ASKSIM: require('../sim.js'), addEventListener() {} };
 global.location = { pathname: '/aktiesparekonto', search: '', hash: '' };
@@ -176,6 +177,23 @@ try {
   check('CSV rows: header+20 years and header+1 drawdown year',
         (csvText.split('\n\n')[0].match(/\n/g) || []).length === 21 &&
         (csvText.split('\n\n')[1].match(/\n/g) || []).length === 2);
+
+  // compact screenshot view: chip strip mirrors the scenario, ⛶ toggles the root class
+  check('shotbar renders the ten default chips', (el('shotbar').innerHTML.match(/class="sb"/g) || []).length === 10,
+        String((el('shotbar').innerHTML.match(/class="sb"/g) || []).length));
+  check('shotbar names the active presets', /WEBN/.test(el('shotbar').innerHTML) &&
+        /STIIAM/.test(el('shotbar').innerHTML) && /Nordnet/.test(el('shotbar').innerHTML));
+  el('shotToggle').fire('click');
+  check('screenshot mode sets the root class', global.document.documentElement.classList.contains('shot'));
+  check('screenshot button pressed state', el('shotToggle')._attrs['aria-pressed'] === 'true');
+  el('liq').value = '10'; el('liq').fire('input');
+  check('shotbar follows the scenario', /spredes over 10 år/.test(el('shotbar').innerHTML));
+  el('married').checked = true; el('married').fire('change');
+  check('shotbar adds the married chip', /dobbelt loft/.test(el('shotbar').innerHTML));
+  el('married').checked = false; el('married').fire('change');
+  el('shotToggle').fire('click');
+  check('screenshot mode toggles off again', !global.document.documentElement.classList.contains('shot'));
+  el('reset').fire('click');
 } catch (e) {
   check('interactions', false, e.stack.split('\n').slice(0, 3).join(' | '));
 }

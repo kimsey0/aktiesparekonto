@@ -270,6 +270,22 @@
     :root:not([data-theme=light]) .theme-toggle .ic-moon{display:none}
     :root:not([data-theme=light]) .theme-toggle .ic-sun{display:block}
   }
+  /* ---------- compact screenshot view ---------- */
+  /* one screen with the result, every assumption as a chip, the chart and the
+     reconciliation table — for sharing a scenario as a single screenshot */
+  .shotbar{display:none}
+  :root.shot .shotbar{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+  .shotbar .sb{font-family:var(--mono); font-size:11px; line-height:1.5; color:var(--muted);
+    border:1px solid var(--hair); border-radius:7px; padding:3px 8px; background:var(--surface)}
+  .shotbar .sb b{color:var(--ink); font-weight:600}
+  :root.shot .wrap{max-width:940px}
+  :root.shot #controls, :root.shot .notes, :root.shot .disc, :root.shot .audit,
+  :root.shot .mast .sub, :root.shot .detail .lead{display:none}
+  :root.shot .main{grid-template-columns:1fr; margin-top:14px}
+  :root.shot .detail{margin-top:16px}
+  :root.shot .detail h2{margin:0 0 8px; font-size:16px}
+  :root.shot table.bd{font-size:12.5px}
+  :root.shot .bd td, :root.shot .bd th{padding:6px 12px}
   :focus-visible{outline:2px solid var(--ask); outline-offset:2px}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -284,6 +300,11 @@
       <p class="sub">De 17 % på aktiesparekontoen vs. 27/42 % i et frit depot er kun overskriften. Når man lægger højere fondsomkostninger, valutaveksling, kurtage på ASK-køb (månedsopsparingen kan typisk ikke kobles på kontoen) og lagerbeskatningens manglende skatteudskydelse oveni, bliver forskellen mindre — og afhænger stærkt af din tidshorisont og hvordan du trækker pengene ud til sidst.</p>
     </div>
     <div class="mast-side">
+      <button id="shotToggle" class="theme-toggle" type="button" aria-pressed="false"
+              aria-label="Kompakt visning — resultat, antagelser og graf på én skærm"
+              title="Kompakt visning — resultat, antagelser og graf på én skærm (til skærmbilleder)">
+        <span aria-hidden="true">⛶</span>
+      </button>
       <button id="themeToggle" class="theme-toggle" type="button" aria-label="Skift farvetema" title="Skift farvetema">
         <span class="ic ic-moon" aria-hidden="true">☾</span>
         <span class="ic ic-sun" aria-hidden="true">☀</span>
@@ -310,6 +331,9 @@
       <div class="real" id="B_real" style="text-align:right">—</div>
     </div>
   </div>
+
+  <!-- compact screenshot view: every assumption behind the numbers, one chip each -->
+  <div class="shotbar" id="shotbar"></div>
 
   <div class="main">
     <!-- controls -->
@@ -1000,11 +1024,47 @@
       (R.firstOverflow ? `Loftet er fyldt op fra år ${R.firstOverflow}, hvorefter ny opsparing ryger i det frie depot.` :
                          `Loftet bliver ikke fyldt op inden for horisonten med de valgte indbetalinger.`);
 
+    renderShotBar(P);
     lastR=R;
     renderAudit(R);
     renderChart(R, showReal);
     updateUrl();
   }
+
+  // ---------- compact screenshot view ----------
+  // Everything the current scenario assumes, one chip per mechanism, rebuilt on
+  // every render so the strip always matches the numbers above it. The strip is
+  // only shown while <html> carries the .shot class (the ⛶ button), which also
+  // hides the controls and prose — result, premises, chart and reconciliation
+  // table then fit on one screen.
+  function renderShotBar(P){
+    const chips=[
+      ['Indbetaling', kr(P.initial)+' + '+nf0.format(P.monthly)+' kr./md · '+P.horizon+' år'],
+      ['Afkast', pct1(P.gross*100)+' nominelt · inflation '+pct1(P.infl*100)],
+      ['ASK', (activeFund.ask?activeFund.ask+' · ':'')+'TER '+nf2.format(P.askTer*100)+' % · '+nf0.format(P.askTax*100)+' % lager · loft '+kr(P.askCeiling)],
+      ['Frit depot', (activeFund.tax?activeFund.tax+' · ':'')+'TER '+nf2.format(P.taxTer*100)+' % · '+nf0.format(P.taxLow*100)+'/'+nf0.format(P.taxHigh*100)+' % realisation'],
+      ['Udbytte', pct1(P.taxDiv*100)+'/år '+(divMode==='tech'?'teknisk (minimumsindkomst)':'kontant — geninvesteres efter skat')],
+      ['Progressionsgrænse', kr(P.threshold)+' → '+kr(P.threshold27)+' (2027) · +'+pct1(P.reg*100)+'/år'],
+      ['Kurtage', (activeFund.fee?BANK_NAMES[activeFund.fee]+' · ':'')+'depot '+nf2.format(P.feePct*100)+' %/min. '+nf01.format(P.feeMin)+' kr. · ASK '+nf2.format(P.askFeePct*100)+' %/min. '+nf01.format(P.askFeeMin)+' kr.'],
+      ['Veksling', nf2.format(P.askForex*100)+' % pr. vej (kun ASK, DKK↔EUR)'],
+      ['Månedsopsparing', msMode==='none' ? 'ingen — alle køb betaler kurtage'
+                        : msMode==='depot' ? 'kurtagefri depotkøb — ASK-køb betaler kurtage'
+                        : 'kurtagefri køb på begge konti'],
+      ['Udtrækning', drawMode==='kink' ? 'sælges op til progressionsgrænsen — begge strategier udbetaler det samme hvert år'
+                   : P.liqYears>1 ? 'salget spredes over '+P.liqYears+' år'
+                   : 'alt sælges efter år '+P.horizon]
+    ];
+    if(P.married) chips.push(['Gift','dobbelt loft og progressionsgrænse · ASK-handler som to halve ordrer']);
+    if(P.harvest) chips.push(['Skattehøst','gevinst realiseres op til grænsen hvert år']);
+    if(P.threshUsed>0) chips.push(['Anden aktieindkomst', kr(P.threshUsed)+'/år bruger af 27 %-båndet']);
+    $('shotbar').innerHTML=chips.map(c=>'<span class="sb"><b>'+c[0]+'</b> '+c[1]+'</span>').join('');
+  }
+  let shotMode=false;
+  $('shotToggle').addEventListener('click',()=>{
+    shotMode=!shotMode;
+    document.documentElement.classList.toggle('shot', shotMode);
+    $('shotToggle').setAttribute('aria-pressed', shotMode?'true':'false');
+  });
 
   // ---------- wiring ----------
   ['initial'].forEach(id=>pair(id,null));
