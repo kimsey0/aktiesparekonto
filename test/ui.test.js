@@ -133,10 +133,43 @@ try {
   el('dm_kink').fire('click');
   el('monthly').value = '1000'; el('monthly').fire('input');
   el('horizon').value = '40'; el('horizon').fire('input');
-  check('infeasible match: run-dry warning shown', /løber tør/.test(el('drawNote').textContent), el('drawNote').textContent.slice(-200));
+  check('infeasible match: run-dry warning shown', /løber tør/.test(el('dryWarn').innerHTML) &&
+        !el('dryWarn').classList.contains('hide'), el('dryWarn').innerHTML.slice(0, 200));
   el('monthly').value = '4000'; el('monthly').fire('input');
   el('horizon').value = '20'; el('horizon').fire('input');
-  check('feasible match: no run-dry warning', !/løber tør/.test(el('drawNote').textContent));
+  check('feasible match: no run-dry warning', el('dryWarn').classList.contains('hide'));
+
+  // fire mode: three linked payout inputs (% / today-kroner / start-kroner),
+  // the edited one anchors and the others follow; run-dry warnings
+  el('dm_fire').fire('click');
+  check('fire mode swaps the period field in', el('liqField').classList.contains('hide') &&
+        !el('fireYearsField').classList.contains('hide') && !el('fireTargetField').classList.contains('hide'));
+  const amt0 = parseFloat(el('fireAmt').value), start0 = parseFloat(el('fireStart').value);
+  check('kroner fields derived from the 4 % anchor', amt0 > 0 && start0 > 0 &&
+        Math.abs(start0 - amt0 * Math.pow(1.02, 20)) <= 1, amt0 + ' -> ' + start0);
+  check('fire note explains the linkage', /følger de to andre/.test(el('fireNote').textContent) &&
+        /nutidskroner/.test(el('fireNote').textContent), el('fireNote').textContent);
+  check('fire draw note mentions the 4 % rule', /4 %-reglen/.test(el('drawNote').textContent));
+  check('no run-dry warning at 4 %', el('dryWarn').classList.contains('hide') &&
+        !el('fireYearsField').classList.contains('warnfield'));
+  check('harvest stays enabled in fire mode', el('harvest').disabled === false);
+  check('shotbar shows the fixed-amount drawdown', /fast beløb/.test(el('shotbar').innerHTML));
+  el('fireStart').value = String(Math.round(10000 * Math.pow(1.02, 20))); el('fireStart').fire('input');
+  check('start-kroner edit anchors the kroner amount', Math.abs(parseFloat(el('fireAmt').value) - 10000) <= 1,
+        el('fireAmt').value);
+  check('percent follows a kroner edit', Math.abs(parseFloat(el('firePct').value) - 4 * 10000 / amt0) < 0.5,
+        el('firePct').value);
+  el('fireAmt').value = '50000'; el('fireAmt').fire('input');
+  check('unsustainable amount: both strategies warn', /Maksimér ASK" løber tør/.test(el('dryWarn').innerHTML) &&
+        /Kun frit depot" løber tør/.test(el('dryWarn').innerHTML) &&
+        !el('dryWarn').classList.contains('hide'), el('dryWarn').innerHTML.slice(0, 300));
+  check('run-dry flags the period and payout fields', el('fireYearsField').classList.contains('warnfield') &&
+        el('fireTargetField').classList.contains('warnfield'));
+  el('firePct').value = '4'; el('firePct').fire('input');
+  check('warning clears when the plan holds again', el('dryWarn').classList.contains('hide') &&
+        !el('fireYearsField').classList.contains('warnfield') && !el('fireTargetField').classList.contains('warnfield'));
+  check('percent edit re-derives the kroner fields', Math.abs(parseFloat(el('fireAmt').value) - amt0) <= 1,
+        el('fireAmt').value);
 
   el('dm_years').fire('click');
   el('reset').fire('click');

@@ -20,8 +20,16 @@ payout path (capped at 30 years, with a flagged forced sale of any remainder),
 and the ASK strategy delivers exactly the same net cash in the same years
 (funded from its own taxable account first, within the band, topped up from
 the ASK), so the two strategies are compared at identical cash flows and differ
-only in what remains invested at the end. When the ASK strategy is the poorer
-one, it can run dry before the window ends; the tool then warns and reports
+only in what remains invested at the end. In "fixed amount" mode, a FIRE-style
+net spending target, set at the drawdown start (as a percentage of the ASK
+strategy's portfolio, or as a today-kroner amount uplifted by inflation to the
+start year) and growing with inflation each year, is delivered by both
+strategies over an adjustable window: cash distributions count first (any
+excess over the target is rebought at the normal commission), then sales, with
+the ASK strategy preferring band-limited taxable sales topped up from the ASK,
+going above the band only once the ASK is empty; the final window year
+liquidates whatever remains. When a strategy cannot deliver the common payout
+path, it can run dry before the window ends; the tool then warns and reports
 the interim cash it failed to deliver instead of matching silently. Realised
 losses in the taxable account are netted against the year's dividends and
 gains (including share income earned outside the model, per the annual

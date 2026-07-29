@@ -1,6 +1,6 @@
 // Numeric tests of the calculation logic in sim.js — run with:  node test/sim.test.js
 // No dependencies. Every expected value is worked out by hand from the 2026 rules.
-const { aktieTax, bracketTax, sellForNet, drawdown, askDrawdown, simulate } = require('../sim.js');
+const { aktieTax, bracketTax, sellForNet, drawdown, askDrawdown, matchedDrawdown, targetDrawdown, simulate } = require('../sim.js');
 
 const BASE = {
   initial: 100000, monthly: 0, horizon: 1, gross: 0.07, infl: 0,
@@ -528,6 +528,133 @@ function check(name, got, want, tol = 0.01) {
     neg2 = Math.min(neg2, x.detail.askV, x.detail.ovV, x.detail.allV);
   check('T31 depot fee capped at the order amount', neg2 >= 0 ? 1 : 0, 1, 0);
   check('T31 B stays non-negative', R2.B_after >= 0 ? 1 : 0, 1, 0);
+}
+
+// T32: fire-mode drawdown of the taxable depot — each interim year nets the
+// fixed target through a grossed-up sale. 1M (basis 400k), 0% growth, no
+// fees, 100,000/yr over 3 years: the gain fraction is 0.6, so each interim
+// year sells 119,331.74 (gain 71,599.05 inside the band, tax 19,331.74);
+// the final year liquidates 761,336.52 (gain 456,801.91 -> tax 21,438 +
+// 377,401.91 x 42% = 179,946.80, net 581,389.71).
+{
+  const d = targetDrawdown(1000000, 400000, P({ gross: 0, drawMode: 'fire' }), FLAT, L(), [100000, 100000, 100000]);
+  check('T32 interim year nets the target', d.wd[0].net, 100000);
+  check('T32 interim sale tax', d.wd[0].tax, 19331.74);
+  check('T32 final-year liquidation', d.wd[2].net, 581389.71);
+  check('T32 total tax', d.tax, 218610.29);
+  check('T32 payouts + tax = the position', d.after + d.tax, 1000000);
+  check('T32 no shortfall', d.shortfall, 0);
+}
+
+// T32b: a target the band cannot cover is still delivered — the fixed amount
+// takes priority over deferral, so the excess pays 42% at once. 1M basis 0,
+// 0% growth, 200,000/yr over 2 years: year 1 sells 324,293.10 (tax 21,438 +
+// 42% of the rest = 124,293.10); the final year liquidates 675,706.90 (tax
+// 271,886.90, net 403,820).
+{
+  const d = targetDrawdown(1000000, 0, P({ gross: 0, drawMode: 'fire' }), FLAT, L(), [200000, 200000]);
+  check('T32b year-1 nets the target above the band', d.wd[0].net, 200000);
+  check('T32b year-1 tax', d.wd[0].tax, 124293.10);
+  check('T32b final year', d.wd[1].net, 403820);
+  check('T32b no shortfall', d.shortfall, 0);
+}
+
+// T32c: distribution cash beyond the target is rebought, not paid out. 1M
+// basis 0, 10% cash distribution, 0% growth, 50,000/yr: year 0 sells
+// 68,493.15 (tax 18,493.15). Year 1's dividend on the remaining 931,506.85
+// is 93,150.68 (tax 27,213.29, net 65,937.40); 50,000 pays out and the
+// excess 15,937.40 is rebought, stepping the basis up by the same amount.
+{
+  const p = P({ gross: 0, taxDiv: 0.10, divMode: 'cash', drawMode: 'fire' });
+  const d = targetDrawdown(1000000, 0, p, FLAT, L(), [50000, 50000, 50000]);
+  check('T32c year-0 sale', d.wd[0].sold, 68493.15);
+  check('T32c year-1 pays exactly the target', d.wd[1].net, 50000);
+  check('T32c excess dividend rebought into the value', d.wd[1].v, 854293.56);
+  check('T32c excess dividend steps up the basis', d.wd[1].basis, 15937.40);
+  check('T32c no sale needed in year 1', d.wd[1].sold, 0);
+  // with kurtage the rebuy pays the depot minimum and the gross joins the basis
+  const d2 = targetDrawdown(1000000, 0, Object.assign({}, p, { msDepot: false, feeMin: 25 }), FLAT, L(), [50000, 50000, 50000]);
+  check('T32c rebuy pays the minimum commission', d2.wd[1].fee, 25);
+  check('T32c rebuy basis = the net dividend beyond the target', d2.wd[1].basis, d2.wd[1].div - d2.wd[1].tax - 50000, 0.02);
+}
+
+// T32d: strategy A with an empty ASK behaves exactly like strategy B under
+// the same fire path (one depot order, above the band when needed). With a
+// small ASK, the year it runs dry is covered mid-year by a second depot
+// sale above the band — no shortfall is recorded while value remains:
+// band sale 79,400 (net 57,962) + the ASK's last 10,000 + 227,651.72 sold
+// at the 42% margin (net 132,038) deliver the 200,000 target exactly.
+{
+  const p = P({ gross: 0, drawMode: 'fire' });
+  const t = [200000, 200000];
+  const m = matchedDrawdown(1000000, 0, 0, 0, p, FLAT, L(), t);
+  const d = targetDrawdown(1000000, 0, p, FLAT, L(), t);
+  check('T32d empty ASK: A depot mirrors B', m.dOv.after, d.after);
+  check('T32d empty ASK: no shortfall', m.shortfall, 0);
+  const m2 = matchedDrawdown(1000000, 0, 10000, 0, p, FLAT, L(), t);
+  check('T32d transition year: depot nets 190,000', m2.dOv.wd[0].net, 190000);
+  check('T32d transition year: the ASK pays its all', m2.dAsk.wd[0].net, 10000);
+  check('T32d band sale + above-band sale booked', m2.dOv.wd[0].sold, 79400 + 227651.72);
+  check('T32d no shortfall while the depot holds value', m2.shortfall, 0);
+}
+
+// T32e: fire mode end-to-end — the percentage target is anchored to strategy
+// A's own portfolio at the drawdown start, both strategies pay identical
+// interim cash, and in kr mode the real payout path is flat at the entered
+// (annual, today-kroner) amount.
+{
+  const D = { initial: 1000000, monthly: 4000, horizon: 20, gross: 0.07, infl: 0.02,
+    askTer: 0.0007, askForex: 0.0025, askCeiling: 174200, reg: 0.02, threshold27: 87100,
+    taxTer: 0.003, taxDiv: 0.014, divMode: 'tech', feePct: 0.001, feeMin: 25,
+    askFeePct: 0.0015, askFeeMin: 25, msAsk: false, drawMode: 'fire',
+    fireInput: 'pct', firePct: 0.04, fireAmt: 60000, fireYears: 30 };
+  const R = simulate(P(D));
+  check('T32e target = 4% of A\'s start portfolio', R.fire.target, 0.04 * R.fire.base);
+  check('T32e first-year payout hits the target', R.plan.dAll.wd[0].net, R.fire.target, 0.05);
+  let maxDiff = 0;
+  for (let k = 0; k < R.drawSeries.length - 1; k++)
+    maxDiff = Math.max(maxDiff, Math.abs(R.drawSeries[k].cashA - R.drawSeries[k].cashB));
+  check('T32e interim payouts identical', maxDiff, 0, 1);
+  check('T32e no shortfall at a sustainable rate', R.A_shortfall + R.B_shortfall, 0, 1);
+  check('T32e window length honoured', R.plan.dAll.wd.length, 30, 0);
+  const R2 = simulate(P(Object.assign({}, D, { fireInput: 'kr' })));
+  check('T32e kr target uplifted to the start year', R2.fire.target, 60000 * Math.pow(1.02, 20), 0.01);
+  for (const k of [0, 7, 19])
+    check(`T32e kr mode: real payout year ${k + 1} is flat at the entered amount`,
+          R2.plan.dAll.wd[k].net / Math.pow(1.02, 20 + k), 60000, 0.05);
+}
+
+// T32f: an unsustainable target runs both strategies dry. The missed cash is
+// reported per strategy, and the payouts stay identical until the first one
+// runs dry.
+{
+  const D = { initial: 1000000, monthly: 4000, horizon: 20, gross: 0.07, infl: 0.02,
+    askTer: 0.0007, askForex: 0.0025, askCeiling: 174200, reg: 0.02, threshold27: 87100,
+    taxTer: 0.003, taxDiv: 0.014, divMode: 'tech', feePct: 0.001, feeMin: 25,
+    askFeePct: 0.0015, askFeeMin: 25, msAsk: false, drawMode: 'fire',
+    fireInput: 'pct', firePct: 0.20, fireAmt: 60000, fireYears: 30 };
+  const R = simulate(P(D));
+  check('T32f A runs dry', R.A_shortfall > 1 ? 1 : 0, 1, 0);
+  check('T32f B runs dry', R.B_shortfall > 1 ? 1 : 0, 1, 0);
+  check('T32f both dry years reported', (R.A_shortYear !== null && R.B_shortYear !== null) ? 1 : 0, 1, 0);
+  let pre = 0;
+  const firstDry = Math.min(R.A_shortYear, R.B_shortYear);
+  for (let k = 0; k < firstDry; k++)
+    pre = Math.max(pre, Math.abs(R.drawSeries[k].cashA - R.drawSeries[k].cashB));
+  check('T32f payouts identical before the first dry year', pre, 0, 1);
+}
+
+// T32g: with a zero ceiling strategy A never holds an ASK, so the two fire-
+// mode strategies are the same portfolio and must produce the same totals.
+{
+  const D = { initial: 1000000, monthly: 4000, horizon: 20, gross: 0.07, infl: 0.02,
+    askTer: 0.0007, askForex: 0.0025, askCeiling: 0, reg: 0.02, threshold27: 87100,
+    taxTer: 0.003, taxDiv: 0.014, divMode: 'tech', feePct: 0.001, feeMin: 25,
+    askFeePct: 0.0015, askFeeMin: 25, msAsk: false, drawMode: 'fire',
+    fireInput: 'pct', firePct: 0.04, fireAmt: 60000, fireYears: 30 };
+  const R = simulate(P(D));
+  check('T32g A equals B with no ASK', R.A_after, R.B_after, 0.5);
+  check('T32g real totals equal too', R.A_real, R.B_real, 0.5);
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL TESTS PASS');

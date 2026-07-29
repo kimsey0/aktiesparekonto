@@ -136,11 +136,17 @@
   .field label{display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:12.5px; color:var(--muted); margin-bottom:5px}
   .field label .v{font-family:var(--mono); color:var(--ink); font-size:12.5px; font-weight:500}
   .inrow{display:flex; align-items:center; gap:8px}
+  .inrow+.inrow{margin-top:6px}
   input[type=number]{
     width:100%; font-family:var(--mono); font-size:13.5px; color:var(--ink);
     background:var(--raise); border:1px solid var(--hair); border-radius:7px; padding:7px 9px;
   }
   input[type=number]:out-of-range{border-color:var(--neg); background:#B0492E0d}
+  /* fields implicated in a run-dry warning (fire mode) */
+  .warnfield label, .warnfield .unit{color:var(--neg)}
+  .warnfield input[type=number]{border-color:var(--neg); background:#B0492E0d}
+  .warnfield input[type=range]{accent-color:var(--neg)}
+  #dryWarn{font-size:12px;color:var(--neg);margin:2px 0 10px}
   .vh{position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
   .unit{font-family:var(--mono); font-size:12px; color:var(--faint); white-space:nowrap}
   input[type=range]{
@@ -415,6 +421,7 @@
           <div class="seg full" role="group" aria-label="Salgsstrategi ved udtrækning">
             <button id="dm_years" aria-pressed="true">Fast antal år</button>
             <button id="dm_kink" aria-pressed="false">Op til grænsen</button>
+            <button id="dm_fire" aria-pressed="false">Fast beløb</button>
           </div>
         </div>
         <div class="field" id="liqField">
@@ -422,6 +429,20 @@
           <input type="range" id="liq_r" min="1" max="30" step="1" value="1" aria-label="Salg fordelt over antal år">
           <div class="inrow"><input type="number" id="liq" min="1" max="40" step="1" value="1"><span class="unit">år</span></div>
         </div>
+        <div class="field hide" id="fireTargetField">
+          <label for="firePct">Udbetaling <span class="v" id="fireTarget_v"></span></label>
+          <input type="range" id="firePct_r" min="1" max="10" step="0.1" value="4" aria-label="Udbetaling i procent af formuen">
+          <div class="inrow"><input type="number" id="firePct" min="0.1" max="20" step="0.1" value="4" aria-label="Udbetaling i procent af formuen"><span class="unit">% af formuen</span></div>
+          <div class="inrow"><input type="number" id="fireAmt" min="0" step="100" value="5000" aria-label="Månedlig udbetaling i nutidskroner"><span class="unit">kr/md i nutidskroner</span></div>
+          <div class="inrow"><input type="number" id="fireStart" min="0" step="100" value="7430" aria-label="Månedlig udbetaling ved udtrækningens start"><span class="unit">kr/md ved start</span></div>
+        </div>
+        <p class="hide" style="font-size:12px;color:var(--muted);margin:2px 0 10px" id="fireNote"></p>
+        <div class="field hide" id="fireYearsField">
+          <label for="fireYears">Udbetalingsperiode <span class="v" id="fireYears_v"></span></label>
+          <input type="range" id="fireYears_r" min="2" max="60" step="1" value="30" aria-label="Udbetalingsperiode i år">
+          <div class="inrow"><input type="number" id="fireYears" min="2" max="60" step="1" value="30"><span class="unit">år</span></div>
+        </div>
+        <p class="hide" id="dryWarn" role="alert"></p>
         <p style="font-size:12px;color:var(--muted);margin:2px 0 10px" id="drawNote"></p>
       </div>
 
@@ -572,7 +593,7 @@
       <p><strong>ASK-skatten kan finansieres udefra.</strong> Lagerskatten trækkes fra aktiesparekontoen, men den må altid genindskydes, også selvom kontoen står over loftet (§ 9, stk. 2). I "Maksimér ASK" fyldes kontoen derfor straks op igen: årets råderum kendes i januar, så den del, årets planlagte indbetalinger ikke selv dækker, sælges fra det frie depot allerede dér, grosset op, så nettoindskuddet præcis lukker hullet efter realisationsskat, kurtage og veksling (kan slås fra under Avanceret). Så længe du indbetaler mere end skatten, sker der ingen tvangssalg; kun en ren lump-sum-opsparer uden løbende indbetalinger tærer på depotet for at holde ASK'en fuld. Over lange horisonter er det bedre at holde mest muligt i den lavt beskattede spand; ved meget korte resthorisonter kan det koste mere i fremrykket realisationsskat, end det sparer.</p>
       <p><strong>Gift?</strong> Fluebenet fordobler både loftet (I kan oprette hver jeres aktiesparekonto) og progressionsgrænsen (uudnyttet grundbeløb overføres automatisk mellem ægtefæller, der er samlevende ved årets udløb, jf. personskattelovens § 8 a, stk. 4). Det forudsætter altså reelt, at I begge opretter konti fra nul og deler opsparingen ligeligt: hver konto har sit eget loft, så den enes ubrugte plads kan ikke bruges af den anden. Kurtagen regnes derfor også pr. konto: hver ASK-handel bogføres som to halvt så store ordrer, så et bindende kurtageminimum betales to gange (det frie depot regnes fortsat som ét).</p>
       <p><strong>Loft og grænser reguleres årligt.</strong> Både indskudsloftet og progressionsgrænsen følger personskattelovens § 20 (senest +3,9 % i 2025 og +4,8 % i 2026). Modellen fremskriver dem med samme redigerbare sats, standard 2 % p.a. Det allerede vedtagne ekstraløft af progressionsgrænsen fra 2027 er kodet ind som sit eget felt: 83.100 kr. i 2025-niveau svarer efter 2026-reguleringen på 4,8 % til 87.100 kr. i 2026-niveau, som fremskrives derfra med § 20-satsen. Grænsen antages fortsat reguleret i udtrækningsårene. "Anden aktieindkomst, noterede aktier" (Avanceret) er husstandens øvrige aktieindkomst fra noterede aktier og aktiebaserede fonde, antaget ens i alle år (ved "Gift": parrets samlede beløb): den bruger af det lave bånd, og modellens realiserede tab modregnes i den, også fremførte tab, som efter reglerne bruges ved først givne lejlighed (ABL § 13 A). Aktieindkomst fra <em>unoterede</em> papirer bruger også af båndet, men kan ikke modtage modellens tab; har du kun sådan indkomst, overvurderes tabsværdien en smule.</p>
-      <p><strong>To måder at sælge ud på.</strong> Udtrækningen simuleres år for år: det endnu ikke solgte forbliver investeret, udlodder og beskattes undervejs (kontante udlodninger udbetales dog i stedet for at blive geninvesteret og indgår i årets udbetaling), og aktiesparekontoen beholdes tilsvarende investeret (fortsat 17 % lager) og udbetales over samme årrække. "Fast antal år" fordeler salget ligeligt over de valgte år; "Op til grænsen" sælger netop progressionsgrænsen i gevinst om året, så alt rammer den lave sats. Det frie depots grænsesalg definerer udbetalingstakten, og "Maksimér ASK" udbetaler nøjagtig de samme beløb i de samme år: først fra sit eget frie depot op til grænsen, resten fra aktiesparekontoen, som ingen progressionsgrænse har og derfor holdes længst muligt i den lave lagerbeskatning. Med ens pengestrømme kan totalerne sammenlignes direkte; ellers ville man lægge beløb modtaget i forskellige årtier sammen, som om de var samtidige. Er "Maksimér ASK" den fattigste strategi, kan begge dens spande dog løbe tør, før vinduet slutter; udbetalingerne kan så ikke matches til det sidste, og værktøjet advarer og angiver, hvor meget der mangler. Kan grænsen ikke nå det hele inden for 30 år, tvangssælges resten i år 30 (delvist til høj sats), og værktøjet advarer. "Skattehøst" gør det samme undervejs i opsparingen: realisér gevinst op til grænsen hvert år og genkøb, så anskaffelsessummen trinnes op og slutskattens 42 %-del skrumper. Det er reelt frivillig lagerbeskatning, bare til 27 % i stedet for ASK'ens 17 % og med kurtage oveni, så det hjælper kun, når slutsalget ellers ville ramme den høje sats, og sjældent nok til at betale sig. Da "Op til grænsen" allerede realiserer op til grænsen hvert år, er skattehøst kun tilgængelig sammen med "Fast antal år". Praktisk detalje: Danmark har ingen egentlig wash-sale-regel, men genkøb <em>samme dag</em> risikerer at blive tilsidesat skattemæssigt (Den juridiske vejledning C.B.2.1.4.10), så vent mindst en handelsdag og handl til markedskurs.</p>
+      <p><strong>Tre måder at sælge ud på.</strong> Udtrækningen simuleres år for år: det endnu ikke solgte forbliver investeret, udlodder og beskattes undervejs (kontante udlodninger udbetales dog i stedet for at blive geninvesteret og indgår i årets udbetaling), og aktiesparekontoen beholdes tilsvarende investeret (fortsat 17 % lager) og udbetales over samme årrække. "Fast antal år" fordeler salget ligeligt over de valgte år; "Op til grænsen" sælger netop progressionsgrænsen i gevinst om året, så alt rammer den lave sats. Det frie depots grænsesalg definerer udbetalingstakten, og "Maksimér ASK" udbetaler nøjagtig de samme beløb i de samme år: først fra sit eget frie depot op til grænsen, resten fra aktiesparekontoen, som ingen progressionsgrænse har og derfor holdes længst muligt i den lave lagerbeskatning. Med ens pengestrømme kan totalerne sammenlignes direkte; ellers ville man lægge beløb modtaget i forskellige årtier sammen, som om de var samtidige. Er "Maksimér ASK" den fattigste strategi, kan begge dens spande dog løbe tør, før vinduet slutter; udbetalingerne kan så ikke matches til det sidste, og værktøjet advarer og angiver, hvor meget der mangler. Kan grænsen ikke nå det hele inden for 30 år, tvangssælges resten i år 30 (delvist til høj sats), og værktøjet advarer. "Fast beløb" er 4 %-reglen: du vælger et fast årligt beløb som en procent af "Maksimér ASK"-formuen ved udtrækningens start, i nutidskroner eller i kroner til den tid (de tre felter er samme udbetaling og følges ad; det senest rettede ligger fast), og beløbet opskrives med inflationen hvert år i den valgte periode. Begge strategier udbetaler nøjagtig det beløb: kontante udlodninger tæller først (overskydende geninvesteres til almindelig kurtage), derefter salg, hvor "Maksimér ASK" sælger op til grænsen i det frie depot, fylder op fra aktiesparekontoen og først sælger over grænsen, når kontoen er tom. "Kun frit depot" sælger det, der skal til, uanset grænsen. I periodens sidste år sælges resten. Rækker formuen ikke, advarer værktøjet og angiver, hvornår pengene slipper op, og hvor meget der mangler. "Skattehøst" gør det samme undervejs i opsparingen: realisér gevinst op til grænsen hvert år og genkøb, så anskaffelsessummen trinnes op og slutskattens 42 %-del skrumper. Det er reelt frivillig lagerbeskatning, bare til 27 % i stedet for ASK'ens 17 % og med kurtage oveni, så det hjælper kun, når slutsalget ellers ville ramme den høje sats, og sjældent nok til at betale sig. Da "Op til grænsen" allerede realiserer op til grænsen hvert år, er skattehøst ikke tilgængelig i den strategi. Praktisk detalje: Danmark har ingen egentlig wash-sale-regel, men genkøb <em>samme dag</em> risikerer at blive tilsidesat skattemæssigt (Den juridiske vejledning C.B.2.1.4.10), så vent mindst en handelsdag og handl til markedskurs.</p>
       <p><strong>Del et scenarie.</strong> Dine ændringer lægges løbende i sidens adresse: kopiér linket, og modtageren ser præcis dit scenarie (praktisk, hvis du vil diskutere et resultat eller melde en fejl). Kun felter, der afviger fra standardværdierne, indgår, og "Nulstil" rydder adressen igen. Et link fastlåser altså kun det, afsenderen selv har ændret: opdateres sidens standardværdier senere (fx nye årssatser), følger resten af et gammelt link med de nye standarder.</p>
       <p><strong>Inflation rammer lager hårdere.</strong> Skatten beregnes af nominelle gevinster, så lagerbeskatningen tærer også på den inflationsskabte del af afkastet hvert år. De inflationsjusterede tal er de nominelle beløb omregnet til nutidens købekraft med din inflationsantagelse frem til hvert beløbs eget år: de viser, hvad udbetalingen svarer til i dag.</p>
       <p><strong>Det nye regeringsudspil.</strong> Regeringsgrundlaget (juni 2026) vil hæve loftet til 500.000 kr. og opgøre det efter oprindeligt indskud frem for løbende værdi. Det er en politisk målsætning, ikke vedtaget lov. Du kan tilnærme effekten ved at sætte <code>Indskudsloft = 500000</code>, men bemærk, at udspillet rummer mere end loftet (bl.a. en ændret loftsdefinition og ændringer af aktieindkomstbeskatningen), så ét felt er kun en grov tilnærmelse. Den varslede undersøgelse af en norsk-inspireret beskatning ved udtræk ville ændre selve lagerprincippet og er ikke modelleret.</p>
@@ -619,7 +640,8 @@
     askTer:0.07, askForex:0.25, askTax:17, ceiling:174200,
     taxTer:0.30, taxDiv:1.4, lowRate:27, highRate:42, thresh:79400, thresh27:87100,
     married:false, liq:1, harvest:false, feePct:0.1, feeMin:25,
-    askFeePct:0.15, askFeeMin:25, threshUsed:0, reg:2, redeposit:true};
+    askFeePct:0.15, askFeeMin:25, threshUsed:0, reg:2, redeposit:true,
+    firePct:4, fireAmt:5000, fireYears:30};
 
   function readParams(){
     // out-of-range input is clamped to the field's min/max for the calculation
@@ -644,6 +666,10 @@
       married:$('married').checked, liqYears:Math.max(1,Math.round(v('liq'))), redeposit:$('redeposit').checked,
       msDepot:msMode!=='none', msAsk:msMode==='both',
       drawMode, harvest: drawMode!=='kink' && $('harvest').checked,
+      // fire mode: the kr amount is entered per month in today's kroner; the
+      // model wants kroner per year (sim.js uplifts them to the start year)
+      fireInput, firePct:v('firePct')/100, fireAmt:v('fireAmt')*12,
+      fireYears:Math.round(v('fireYears')),
       feePct:v('feePct')/100, feeMin:v('feeMin'),
       askFeePct:v('askFeePct')/100, askFeeMin:v('askFeeMin')
     };
@@ -936,6 +962,7 @@
   // ---------- render everything ----------
   let showReal=false;
   let drawMode='years';
+  let fireInput='pct';   // fire mode's amount: 'pct' of the portfolio or 'kr' in today's kroner
   let divMode='tech';
   let msMode='depot';   // månedsopsparing: commission-free recurring buys ('none'|'depot'|'both')
   function render(){
@@ -963,28 +990,68 @@
     $('liq_v').textContent=P.liqYears+(P.liqYears===1?' år (engangssalg)':' år');
     $('feePct_v').textContent=nf2.format(P.feePct*100)+' %';
     $('feeMin_v').textContent=nf0.format(P.feeMin)+' kr';
-    const kink=drawMode==='kink';
-    $('liqField').classList.toggle('hide', kink);
+    $('fireYears_v').textContent=Math.round(P.fireYears)+' år';
+    const kink=drawMode==='kink', fire=drawMode==='fire';
+    $('liqField').classList.toggle('hide', kink||fire);
+    $('fireTargetField').classList.toggle('hide', !fire);
+    $('fireNote').classList.toggle('hide', !fire);
+    $('fireYearsField').classList.toggle('hide', !fire);
     $('drawNote').textContent = kink
       ? 'Du sælger op til progressionsgrænsen hvert år, så alt beskattes med den lave sats. Det frie depots udlodninger og grænsesalg sætter udbetalingstakten, og "Maksimér ASK" udbetaler nøjagtig det samme beløb hvert år: først fra sit eget frie depot op til grænsen, resten fra aktiesparekontoen, som ingen progressionsgrænse har. Med ens udbetalinger er forskellen alene, hvad der står tilbage i spandene til sidst (se tabellen nedenfor).'
+      : fire
+      ? 'Du hæver et fast beløb hvert år, opskrevet med inflationen, som i 4 %-reglen. Begge strategier udbetaler nøjagtig det samme, så forskellen er alene, hvad der står tilbage til sidst, hvor resten sælges. "Maksimér ASK" dækker beløbet med det frie depots udlodninger og salg op til grænsen og fylder op fra aktiesparekontoen; "Kun frit depot" sælger det, der skal til, også over grænsen. Udlodninger ud over beløbet geninvesteres.'
       : (P.liqYears===1
           ? 'Sælger du hele det frie depot på én gang, ryger gevinsten over grænsen op i den høje sats. Spred salget for at bruge den lave sats hvert år.'
           : 'Salget fordeles ligeligt over årene; resten forbliver investeret og beskattes undervejs, og en større del af gevinsten rammer den lave 27 %-sats.');
     $('harvest').disabled = kink;
     $('harvestField').classList.toggle('dim', kink);
     $('harvestNote').textContent = kink
-      ? '"Op til grænsen" realiserer allerede op til progressionsgrænsen hvert år under udtrækningen, så at høste oveni ville bare betale den samme skat tidligere. Skattehøst gælder derfor kun "Fast antal år".'
+      ? '"Op til grænsen" realiserer allerede op til progressionsgrænsen hvert år under udtrækningen, så at høste oveni ville bare betale den samme skat tidligere. Skattehøst gælder derfor ikke her.'
       : 'Sælg og genkøb hvert år, så netop progressionsgrænsen fyldes med 27 %-gevinst. Det er i praksis frivillig lagerbeskatning, bare til 27 % i stedet for ASK\'ens 17 % og med kurtage oveni. Hjælper kun, hvis slutsalget ellers ville ramme 42 %-trinnet, og sjældent nok til at betale sig.';
 
     const R=simulate(P);
-    if(R.A_forced||R.B_forced){
+    if(fire && R.fire){
+      // the three linked inputs describe the same payout: the last-edited one
+      // (fireInput anchor) holds its value, the other two follow the
+      // simulation; the field being typed in is never rewritten under the user
+      const t=R.fire.target, up=Math.pow(1+P.infl, P.horizon);
+      const ae=document.activeElement;
+      const put=(id,val)=>{ const el=$(id); if(el!==ae) el.value=val; };
+      if(fireInput==='pct'){
+        put('fireAmt', Math.round(t/12/up));
+        put('fireStart', Math.round(t/12));
+      } else {
+        if(R.fire.base>0){
+          const p=Math.round(t/R.fire.base*1000)/10;
+          put('firePct', p); put('firePct_r', p);
+        }
+        put('fireStart', Math.round(t/12));
+      }
+      $('fireTarget_v').textContent=kr(t)+' første år';
+      $('fireNote').textContent='Ret ét af felterne, så følger de to andre med: procenten er målt mod formuen i "Maksimér ASK" ved udtrækningens start ('+kr(R.fire.base)+'), og nutidskroner er regnet op med inflationen frem til da.';
+    }
+    if(kink && (R.A_forced||R.B_forced)){
       $('drawNote').textContent += ' Grænsen kan ikke nå det hele inden for modellens 30-års vindue, så resten tvangssælges i år 30, delvist til høj sats.';
     } else if(kink && Math.max(R.A_years,R.B_years)>20){
       $('drawNote').textContent += ' Med de valgte tal tager udsalget '+Math.max(R.A_years,R.B_years)+' år. Det er matematisk korrekt, men næppe realistisk; overvej at acceptere noget 42 %-skat i stedet.';
     }
-    if(R.A_shortfall>1){
-      $('drawNote').textContent += ' Bemærk: "Maksimér ASK" løber tør undervejs; fra udtrækningsår '+(R.A_shortYear+1)+' kan den ikke længere matche det frie depots udbetalinger og betaler i alt '+kr(R.A_shortfall)+' mindre i de mellemliggende år. Totalerne er stadig hver strategis samlede udbetalinger, men grundlaget "ens udbetalinger" holder ikke her, så læg især vægt på de inflationsjusterede tal.';
+    // run-dry warnings get their own highlighted line (and flag the fire
+    // fields that can fix it) instead of drowning in the mode description
+    let dry='';
+    if(kink && R.A_shortfall>1){
+      dry='<strong>"Maksimér ASK" løber tør undervejs.</strong> Fra udtrækningsår '+(R.A_shortYear+1)+' kan den ikke længere matche det frie depots udbetalinger og betaler i alt '+kr(R.A_shortfall)+' mindre i de mellemliggende år. Totalerne er stadig hver strategis samlede udbetalinger, men grundlaget "ens udbetalinger" holder ikke her, så læg især vægt på de inflationsjusterede tal.';
     }
+    if(fire && (R.A_shortfall>1 || R.B_shortfall>1)){
+      const parts=[];
+      if(R.A_shortfall>1) parts.push('"Maksimér ASK" løber tør i udtrækningsår '+(R.A_shortYear+1)+' af '+Math.round(P.fireYears)+' og mangler i alt '+kr(R.A_shortfall));
+      if(R.B_shortfall>1) parts.push('"Kun frit depot" løber tør i udtrækningsår '+(R.B_shortYear+1)+' af '+Math.round(P.fireYears)+' og mangler i alt '+kr(R.B_shortfall));
+      dry='<strong>Pengene løber tør.</strong> '+parts.join('; ')+' Sænk beløbet eller udbetalingsperioden, hvis planen skal hænge sammen. Strategierne udbetaler her ikke længere det samme hvert år, så læg især vægt på de inflationsjusterede tal.';
+    }
+    $('dryWarn').innerHTML=dry;
+    $('dryWarn').classList.toggle('hide', !dry);
+    const fireDry = fire && !!dry;
+    $('fireYearsField').classList.toggle('warnfield', fireDry);
+    $('fireTargetField').classList.toggle('warnfield', fireDry);
     const A=R.A_after, B=R.B_after, gap=A-B;
 
     $('A_big').textContent=kr(A);
@@ -1051,6 +1118,7 @@
                         : msMode==='depot' ? 'kurtagefri depotkøb, ASK-køb betaler kurtage'
                         : 'kurtagefri køb på begge konti'],
       ['Udtrækning', drawMode==='kink' ? 'sælges op til progressionsgrænsen; begge strategier udbetaler det samme hvert år'
+                   : drawMode==='fire' ? 'fast beløb ('+(fireInput==='pct' ? pct1(P.firePct*100)+' af formuen' : nf0.format(P.fireAmt/12)+' kr./md i nutidskroner')+') opskrevet med inflationen i '+Math.round(P.fireYears)+' år; begge strategier udbetaler det samme'
                    : P.liqYears>1 ? 'salget spredes over '+P.liqYears+' år'
                    : 'alt sælges efter år '+P.horizon]
     ];
@@ -1070,6 +1138,19 @@
   ['initial'].forEach(id=>pair(id,null));
   pair('monthly','monthly_r'); pair('horizon','horizon_r');
   pair('gross','gross_r'); pair('infl','infl_r'); pair('liq','liq_r');
+  pair('fireYears','fireYears_r');
+  // the three fire inputs are linked: the one you edit becomes the anchor
+  // (fireInput), and render() recomputes the other two from the simulation
+  $('firePct').addEventListener('input',()=>{ $('firePct_r').value=$('firePct').value; fireInput='pct'; render(); });
+  $('firePct_r').addEventListener('input',()=>{ $('firePct').value=$('firePct_r').value; fireInput='pct'; render(); });
+  $('fireAmt').addEventListener('input',()=>{ fireInput='kr'; render(); });
+  $('fireStart').addEventListener('input',()=>{
+    // a start-year amount is just its today-kroner equivalent, deflated back
+    const Pp=readParams();
+    const x=parseFloat($('fireStart').value);
+    $('fireAmt').value=isFinite(x)?Math.max(0,Math.round(x/Math.pow(1+Pp.infl,Pp.horizon))):0;
+    fireInput='kr'; render();
+  });
   ['askTer','askForex','askTax','ceiling','taxTer','taxDiv','lowRate','highRate','thresh','thresh27','feePct','feeMin','askFeePct','askFeeMin','threshUsed','reg']
     .forEach(id=>$(id).addEventListener('input',render));
   $('married').addEventListener('change',render);
@@ -1079,9 +1160,11 @@
     drawMode=m;
     $('dm_years').setAttribute('aria-pressed', m==='years'?'true':'false');
     $('dm_kink').setAttribute('aria-pressed', m==='kink'?'true':'false');
+    $('dm_fire').setAttribute('aria-pressed', m==='fire'?'true':'false');
   }
   $('dm_years').addEventListener('click',()=>{ setDrawMode('years'); render(); });
   $('dm_kink').addEventListener('click',()=>{ setDrawMode('kink'); render(); });
+  $('dm_fire').addEventListener('click',()=>{ setDrawMode('fire'); render(); });
   function setMsMode(m){
     msMode=m;
     ['none','depot','both'].forEach(x=>$('ms_'+x).setAttribute('aria-pressed', x===m?'true':'false'));
@@ -1178,7 +1261,7 @@
       if(el.type==='checkbox') el.checked=DEFAULTS[k]; else el.value=DEFAULTS[k];
       const r=$(k+'_r'); if(r) r.value=DEFAULTS[k];
     }
-    setDrawMode('years'); setDivMode('tech'); setMsMode('depot');
+    setDrawMode('years'); fireInput='pct'; setDivMode('tech'); setMsMode('depot');
     activeFund={ask:'WEBN', tax:'STIIAM', fee:'Nordnet'}; updateFundChips();
     render();
   });
@@ -1198,15 +1281,19 @@
   // current defaults. Only the query string is written: the path is left
   // untouched, so the with/without-trailing-slash hosting (see the sim.js
   // loader above) is unaffected.
-  const MODE_DEFAULTS={dm:'years', dv:'tech', ms:'depot', vis:'nom'};
+  const MODE_DEFAULTS={dm:'years', fi:'pct', dv:'tech', ms:'depot', vis:'nom'};
   function urlQuery(){
     const q=[];
+    // of the linked fire inputs only the anchor is the user's number — the
+    // other is derived by render() and would pollute every shared link
+    const fireSkip = fireInput==='pct' ? 'fireAmt' : 'firePct';
     for(const k in DEFAULTS){
+      if(k===fireSkip) continue;
       const el=$(k); if(!el) continue;
       if(el.type==='checkbox'){ if(el.checked!==DEFAULTS[k]) q.push(k+'='+(el.checked?1:0)); }
       else if(parseFloat(el.value)!==DEFAULTS[k]) q.push(k+'='+encodeURIComponent(el.value));
     }
-    const modes={dm:drawMode, dv:divMode, ms:msMode, vis:showReal?'real':'nom'};
+    const modes={dm:drawMode, fi:fireInput, dv:divMode, ms:msMode, vis:showReal?'real':'nom'};
     for(const k in modes) if(modes[k]!==MODE_DEFAULTS[k]) q.push(k+'='+modes[k]);
     return q.join('&');
   }
@@ -1240,7 +1327,8 @@
     let q;
     try{ q=new URLSearchParams(location.search); }catch(e){ return; }
     q.forEach((val,k)=>{
-      if(k==='dm'){ if(val==='years'||val==='kink') setDrawMode(val); }
+      if(k==='dm'){ if(val==='years'||val==='kink'||val==='fire') setDrawMode(val); }
+      else if(k==='fi'){ if(val==='pct'||val==='kr') fireInput=val; }
       else if(k==='dv'){ if(val==='tech'||val==='cash') setDivMode(val); }
       else if(k==='ms'){ if(val==='none'||val==='depot'||val==='both') setMsMode(val); }
       else if(k==='vis'){ setShowReal(val==='real'); }

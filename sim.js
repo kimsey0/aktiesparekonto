@@ -61,11 +61,14 @@
   // in the actual assessment; rg is that post-fee taxable amount — signed, so a
   // sale below basis realises a loss (tax against L can then be a refund).
   // Prices against the year ledger L without booking; the caller settles rg.
-  // Fixed-point iteration — the tax+fee fraction is well below 1, so it contracts.
-  function sellForNet(a, target, L, P){
+  // Fixed-point iteration — the tax+fee fraction is well below 1, so it
+  // contracts; `iters` (default 8) can be raised where the caller needs the
+  // target hit to the øre even at the 42 % marginal rate (fire mode, whose
+  // shortfall accounting would otherwise book the convergence residual).
+  function sellForNet(a, target, L, P, iters){
     const gainFrac = a.v>0 ? (a.v-a.basis)/a.v : 0;
     let gross=target;
-    for(let i=0;i<8;i++){
+    for(let i=0;i<(iters||8);i++){
       const fee=Math.max(P.feePct*gross, P.feeMin);
       const tax=taxOn(L, gross*gainFrac-fee, P);
       gross=Math.min(a.v, Math.max(0, target+tax+fee));
@@ -196,25 +199,29 @@
     return out;
   }
 
-  // Kink-mode drawdown of strategy A, matched to strategy B's payout path
-  // (ref = B's band-fill drawdown): A delivers exactly the same net cash in
-  // the same years, so the strategies differ only in what stays invested —
-  // their totals then compare fairly no matter what the saver does with the
-  // withdrawals. The overflow depot's own cash distributions (paid out, as in
-  // drawdown) count toward the year's target first; band-limited sales cover
-  // the next slice (realising above the kink early would pay 42 % now instead
-  // of 42 % at the forced final sale, losing pure deferral); the ASK — which
-  // has no kink to respect and is the lowest-taxed wrapper — covers the rest.
-  // The depot's distributions can never overshoot the target: it is worth at
-  // most as much as B's depot, so its dividends are at most B's, which B pays
-  // out too. The final window year liquidates both buckets, flagging `forced`
-  // if the depot's remaining gain overflows the band.
-  // When strategy A is the poorer one, both buckets can run dry before the
-  // window ends — the match is then infeasible, and the missed interim cash is
-  // reported as `shortfall` (first missed year in `shortYear`) so the caller
-  // can say so instead of silently paying less.
-  function matchedDrawdown(ovV, ovBasis, askV, askCarry, P, thrOf, L0, ref){
-    const N=Math.max(1, ref.years||1);
+  // Drawdown of strategy A against a prescribed payout path: A delivers
+  // exactly `targets[k]` net cash in window year k, so the strategies differ
+  // only in what stays invested — their totals then compare fairly no matter
+  // what the saver does with the withdrawals. Two callers: kink mode passes
+  // strategy B's band-fill path, fire mode a fixed inflation-uplifted amount.
+  // The overflow depot's own cash distributions (paid out, as in drawdown)
+  // count toward the year's target first; band-limited sales cover the next
+  // slice (realising above the kink early would pay 42 % now instead of 42 %
+  // at the forced final sale, losing pure deferral); the ASK — which has no
+  // kink to respect and is the lowest-taxed wrapper — covers the rest. In
+  // fire mode only, the depot also sells beyond the band once the ASK is
+  // empty: the fixed target takes priority over deferral there, and dividend
+  // cash beyond the target is rebought (in kink mode neither can occur — the
+  // depot is worth at most as much as B's, so its dividends are at most B's,
+  // which B pays out too, and band sales always suffice by construction).
+  // The final window year liquidates both buckets, flagging `forced` if the
+  // depot's remaining gain overflows the band.
+  // When strategy A is too poor for the path, both buckets can run dry before
+  // the window ends — the missed cash is reported as `shortfall` (first
+  // missed year in `shortYear`) so the caller can say so instead of silently
+  // paying less.
+  function matchedDrawdown(ovV, ovBasis, askV, askCarry, P, thrOf, L0, targets){
+    const N=Math.max(1, targets.length);
     let shortfall=0, shortYear=null;
     const oOv={tax:0, fee:0, years:0, after:0, wd:[], forced:false};
     const oAsk={tax:0, fee:0, fx:0, years:0, after:0, wd:[]};
@@ -246,6 +253,18 @@
           av-=tax; oAsk.tax+=tax; yAskTax=tax;
         }
       }
+      // fire mode: distribution cash beyond the year's target is rebought (a
+      // real buy — kurtage per the depot schedule unless månedsopsparing
+      // covers it, the gross amount joins the cost basis)
+      if(k<N-1){
+        const excess=divNet-(targets[k]||0);
+        if(excess>0.01){
+          const buyFee=P.msDepot?0:Math.min(Math.max(P.feePct*excess,P.feeMin),excess);
+          v+=excess-buyFee; b+=excess;
+          oOv.fee+=buyFee; yOvFee+=buyFee;
+          divNet-=excess;
+        }
+      }
       let netOv=divNet, netAsk=0;
       oOv.after+=divNet;
       const gain=v-b;
@@ -271,14 +290,17 @@
           av=0;
         }
       } else {
-        const target=(ref.wd[k]||{net:0}).net;
+        const target=targets[k]||0;
         const need=target-netOv;
         if(need>0.01){
           if(v>1){
-            // gross up for the still-missing net, then cap at the band-filling sale
+            // gross up for the still-missing net, then cap at the band-filling
+            // sale — except in fire mode with the ASK already empty, where the
+            // whole target must come from the depot in one order
             const bandSell = gain<=band ? v : Math.min(v, band*v/gain);
-            const s=sellForNet({v, basis:b}, Math.min(need, v), L, P);
-            const gross=Math.min(s.gross, bandSell);
+            const cap = (P.drawMode==='fire' && av<=1) ? v : bandSell;
+            const s=sellForNet({v, basis:b}, Math.min(need, v), L, P, P.drawMode==='fire'?30:8);
+            const gross=Math.min(s.gross, cap);
             if(gross>0.01){
               const fee=Math.max(P.feePct*gross, P.feeMin);
               const rg=gross*(gain/v)-fee;
@@ -304,7 +326,23 @@
             oAsk.fee+=fee; oAsk.fx+=fx; oAsk.after+=netAsk;
             yAskSold=g; yAskFee=fee; yAskFx=fx;
           }
-          const still=target-netOv-netAsk;
+          let still=target-netOv-netAsk;
+          // fire only: the ASK was alive but too small, so go back to the
+          // depot above the band rather than record a shortfall while it
+          // still holds value (a second order in the transition year — can
+          // pay one extra minimum commission, second-order)
+          if(P.drawMode==='fire' && still>0.01 && v>1){
+            const s2=sellForNet({v, basis:b}, Math.min(still, v), L, P, 30);
+            if(s2.gross>0.01){
+              const tax=settle(L, s2.rg, P);
+              const saleNet=Math.max(0, s2.gross-tax-s2.fee);
+              netOv+=saleNet;
+              b-=s2.gross*(b/v); v-=s2.gross;
+              oOv.tax+=tax; oOv.fee+=s2.fee; oOv.after+=saleNet;
+              yOvSold+=s2.gross; yOvTax+=tax; yOvFee+=s2.fee;
+              still=target-netOv-netAsk;
+            }
+          }
           if(still>0.01){ shortfall+=still; if(shortYear===null) shortYear=k; }
         }
       }
@@ -323,6 +361,91 @@
       oOv.years=k+1; oAsk.years=k+1;
     }
     return {dOv:oOv, dAsk:oAsk, shortfall, shortYear};
+  }
+
+  // Fire-mode drawdown of a single taxable position (strategy B): each window
+  // year pays out `targets[k]` net — cash distributions first, then a
+  // grossed-up sale for the remainder. Sales are not band-capped: the fixed
+  // target takes priority over deferral, so a year whose gain slice overflows
+  // the band pays some 42 %. Distribution cash beyond the target is rebought
+  // (kurtage per the depot schedule unless månedsopsparing covers it, the
+  // gross amount joins the cost basis). The final window year liquidates the
+  // position through that year's band. If the depot runs dry, the missed cash
+  // is reported as `shortfall` (first missed year in `shortYear`).
+  // Same conventions as drawdown: thrOf/L0 semantics, per-year audit trail on
+  // the wd entries, nominal amounts deflated by the caller.
+  function targetDrawdown(value, basis, P, thrOf, L0, targets){
+    const out={tax:0, fee:0, years:0, after:0, wd:[], forced:false, shortfall:0, shortYear:null};
+    const N=Math.max(1, targets.length);
+    const r=Math.max(-0.99, P.gross-P.taxTer);
+    let v=Math.max(0,value), b=basis;
+    let L=Object.assign({}, L0, {thr:thrOf(0)});
+    for(let k=0; k<N; k++){
+      let divNet=0, yDiv=0, yTax=0, yFee=0, ySold=0;
+      if(k>0){
+        L=newLedger(thrOf(k), P.threshUsed, closeYear(L));
+        if(v>0){
+          const divBase=v;
+          v*=(1+r);
+          const div=P.taxDiv*divBase;
+          if(div>0){
+            const dt=settle(L, div, P);
+            if(P.divMode==='tech'){ b+=div; b-=dt*(b/v); v-=dt; }
+            else { v-=div; divNet=div-dt; }   // paid out, not reinvested
+            out.tax+=dt; yDiv=div; yTax+=dt;
+          }
+        }
+      }
+      let net=0;
+      if(k>=N-1){
+        // final window year: the dividend pays out and the rest is sold whole
+        net=divNet;
+        if(v>1){
+          const fee=Math.max(P.feePct*v, P.feeMin);
+          const rg=(v-b)-fee;
+          const tax=settle(L, rg, P);
+          net+=Math.max(0, v-tax-fee);
+          out.tax+=tax; out.fee+=fee;
+          ySold=v; yTax+=tax; yFee+=fee;
+          v=0; b=0;
+        }
+      } else {
+        const target=targets[k]||0;
+        const excess=divNet-target;
+        if(excess>0.01){
+          const buyFee=P.msDepot?0:Math.min(Math.max(P.feePct*excess,P.feeMin),excess);
+          v+=excess-buyFee; b+=excess;
+          out.fee+=buyFee; yFee+=buyFee;
+          divNet-=excess;
+        }
+        net=divNet;
+        const need=target-net;
+        if(need>0.01 && v>1){
+          const s=sellForNet({v, basis:b}, Math.min(need, v), L, P, 30);
+          if(s.gross>0.01){
+            const tax=settle(L, s.rg, P);
+            net+=Math.max(0, s.gross-tax-s.fee);
+            b-=s.gross*(b/v); v-=s.gross;
+            out.tax+=tax; out.fee+=s.fee;
+            ySold=s.gross; yTax+=tax; yFee+=s.fee;
+          }
+        }
+        const short=target-net;
+        if(short>0.01){ out.shortfall+=short; if(out.shortYear===null) out.shortYear=k; }
+      }
+      out.after+=net;
+      // abort = what the remainder would net, sold as a lump against the next
+      // year's fresh band and carry (same approximation as drawdown)
+      let abort=Math.max(0, v);
+      if(v>1){
+        const af=Math.max(P.feePct*v, P.feeMin);
+        abort=Math.max(0, v - bracketTax((v-b)-af-closeYear(L), thrOf(k+1), P.threshUsed, P.taxLow, P.taxHigh) - af);
+      }
+      out.wd.push({net, k, abort, sold:ySold, div:yDiv, tax:yTax, fee:yFee,
+                   income:L.income, thr:L.thr, v:Math.max(0,v), basis:Math.max(0,b)});
+      out.years=k+1;
+    }
+    return out;
   }
 
   function simulate(P){
@@ -524,20 +647,39 @@
           // the chosen strategy, simulated once from the horizon (the headline
           // numbers and the chart's drawdown wedge). In kink mode strategy B's
           // band-limited exit (capped at 30 years) defines the payout path and
-          // strategy A matches it krone for krone, so the two totals compare
-          // at identical cash flows.
-          const dAll=drawdown(all.v, all.basis, P, thrOf, all.led);
-          let dOv, dAsk, shortfall=0, shortYear=null;
-          if(P.drawMode==='kink'){
-            const m=matchedDrawdown(ov.v, ov.basis, ask.v, ask.carry, P, thrOf, ov.led, dAll);
+          // strategy A matches it krone for krone; in fire mode a fixed
+          // inflation-uplifted net amount defines the path and BOTH strategies
+          // deliver it — either way the two totals compare at identical cash
+          // flows, and only the final window year's liquidation differs.
+          let dAll, dOv, dAsk, shortfall=0, shortYear=null, fire=null;
+          if(P.drawMode==='fire'){
+            // the 4 %-rule target is anchored to strategy A's own portfolio at
+            // the drawdown start (the saver's actual plan; strategy B is the
+            // counterfactual); a kr amount is stated in today's kroner and
+            // uplifted to the start year. Both then grow with inflation.
+            const N=Math.min(60, Math.max(2, Math.round(P.fireYears||30)));
+            const base=ask.v+ov.v;
+            const target0 = P.fireInput==='kr' ? P.fireAmt*Math.pow(1+P.infl, P.horizon)
+                                               : P.firePct*base;
+            const targets=[];
+            for(let k=0;k<N;k++) targets.push(target0*Math.pow(1+P.infl, k));
+            dAll=targetDrawdown(all.v, all.basis, P, thrOf, all.led, targets);
+            const m=matchedDrawdown(ov.v, ov.basis, ask.v, ask.carry, P, thrOf, ov.led, targets);
             dOv=m.dOv; dAsk=m.dAsk; shortfall=m.shortfall; shortYear=m.shortYear;
+            fire={base, target:target0, years:N};
           } else {
-            dOv=drawdown(ov.v, ov.basis, P, thrOf, ov.led);
-            dAsk=askDrawdown(ask.v, ask.carry, P, Math.min(100, Math.max(1,Math.round(P.liqYears))));
+            dAll=drawdown(all.v, all.basis, P, thrOf, all.led);
+            if(P.drawMode==='kink'){
+              const m=matchedDrawdown(ov.v, ov.basis, ask.v, ask.carry, P, thrOf, ov.led, dAll.wd.map(w=>w.net));
+              dOv=m.dOv; dAsk=m.dAsk; shortfall=m.shortfall; shortYear=m.shortYear;
+            } else {
+              dOv=drawdown(ov.v, ov.basis, P, thrOf, ov.led);
+              dAsk=askDrawdown(ask.v, ask.carry, P, Math.min(100, Math.max(1,Math.round(P.liqYears))));
+            }
           }
           // real mode deflates each payout by its own year
           const realSum=w=>w.reduce((s,x)=>s+x.net/Math.pow(1+P.infl, y+1+x.k),0);
-          fin={dOv, dAll, dAsk, shortfall, shortYear,
+          fin={dOv, dAll, dAsk, shortfall, shortYear, fire,
                A:dAsk.after+dOv.after, B:dAll.after,
                Areal:realSum(dAsk.wd)+realSum(dOv.wd), Breal:realSum(dAll.wd)};
         }
@@ -578,11 +720,19 @@
       A_fx: ask.fxCum + fin.dAsk.fx,
       A_years: fin.dOv.years, B_years: fin.dAll.years,
       A_forced: fin.dOv.forced, B_forced: fin.dAll.forced,
-      // kink mode only: interim cash strategy A could not deliver because both
+      // kink/fire modes: interim cash strategy A could not deliver because both
       // its buckets ran dry before the window ended (0 when the match held)
-      A_shortfall: fin.shortfall, A_shortYear: fin.shortYear
+      A_shortfall: fin.shortfall, A_shortYear: fin.shortYear,
+      // fire mode: strategy B can run dry too (it has no path of its own to
+      // fall back on — the target is fixed), and the mode's parameters are
+      // echoed back for the UI's equivalence line: the target base (strategy
+      // A's portfolio at the drawdown start), the first-year net target in
+      // start-year kroner, and the window length
+      B_shortfall: fin.fire ? fin.dAll.shortfall : 0,
+      B_shortYear: fin.fire ? fin.dAll.shortYear : null,
+      fire: fin.fire
     };
   }
 
-  return { aktieTax, bracketTax, sellForNet, drawdown, askDrawdown, matchedDrawdown, simulate };
+  return { aktieTax, bracketTax, sellForNet, drawdown, askDrawdown, matchedDrawdown, targetDrawdown, simulate };
 });
